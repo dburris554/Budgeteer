@@ -1,8 +1,14 @@
-# Instructions post dev-container rebuild
+# Instructions
 
-- Run 'git config --global user.name "Your Name"
-- Run 'git config --global user.email "your.email@address.com"
-- Run 'pipenv shell' to enter pipenv on terminal
-- Run 'streamlit run app.py' to start application
-- Run 'pipenv update' to install dependencies
-- Type 'exit' to exit pipenv
+## Enable Git commits
+
+```
+git config --global user.name "Your Name"
+git config --global user.email "your.email@address.com"
+```
+
+## Run Appliation
+
+```
+streamlit run app.py
+```

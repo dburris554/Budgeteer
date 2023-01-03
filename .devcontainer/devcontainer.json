@@ -16,7 +16,7 @@
 	// "forwardPorts": [],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "pip3 install --user -r requirements.txt"
+	"postCreateCommand": "pip3 install pipenv && pipenv install && pipenv install --system"
 
 	// Configure tool-specific properties.
 	// "customizations": {},

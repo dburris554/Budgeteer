@@ -1,0 +1,4 @@
+{
+    "python.defaultInterpreterPath": "~/.local/share/virtualenvs/Budgeteer-YAF2hVhT/bin/python",
+    "python.analysis.typeCheckingMode": "basic",
+}
