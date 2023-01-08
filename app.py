@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # Constants
-COLUMNS = ("Day", "Category", "Amount", "Allocation Name", "Automatic",
+COLUMNS = ("Day", "Category", "Amount", "Allocation", "Automatic",
 "Paid", "Cleared")
 INDEX = ["Description"]
 
@@ -36,3 +36,22 @@ with data:
     df = pd.DataFrame(st.session_state.df)
     st.dataframe(df.style.format(precision=2, thousands=',', na_rep=' '), use_container_width=True)
     st.button('Clear table', on_click=initialize_table)
+
+with insights:
+    df = pd.DataFrame(st.session_state.df)
+    left, middle, right = st.columns([1,1,1])
+    with left:
+        bar_data = {'Income': [], 'Expenses': []}
+        accounts = list(set(df[(df['Category'] == 'Income')]['Allocation'].tolist()))
+        for account in accounts:
+            account = str(account)
+            income_lines = df[(df['Category'] == 'Income') & (df['Allocation'] == account)]
+            tot_income = income_lines['Amount'].sum()
+            income_names = income_lines.index.values.tolist()
+            tot_expenses = 0.0
+            for name in income_names:
+                name = str(name)
+                tot_expenses = tot_expenses + df[(df['Allocation'] == name)]['Amount'].sum()
+            bar_data['Income'] += [tot_income]
+            bar_data['Expenses'] += [tot_expenses]
+        st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=accounts))
