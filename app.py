@@ -86,6 +86,11 @@ with insights:
         income_lines = df[(df['Category'] == 'Income')].loc[:, 'Amount']
         for description, amount in zip(income_lines.index, income_lines):
             s_t_v_data.append({s: description, t: 'Total Income', v: amount})
+        expense_lines = df[(df['Category'] != 'Income')].loc[:, ['Category', 'Amount']]
+        categories = np.unique(expense_lines['Category']).tolist()
+        for category in categories:
+            tot_amount = expense_lines[(expense_lines['Category'] == category)]['Amount'].sum()
+            s_t_v_data.append({s: 'Total Income', t: category, v: tot_amount})
         if len(s_t_v_data) > 0:
             sankey_df = pd.DataFrame(s_t_v_data)
             nodes = np.unique(sankey_df[['source', 'target']], axis=None)
@@ -97,3 +102,4 @@ with insights:
             fig = go.Figure(data=sankey)
             fig.update_layout(margin=dict(l=0, r=0, t=5, b=100))
             st.plotly_chart(fig, use_container_width=True)
+            # st.table(s_t_v_data)
