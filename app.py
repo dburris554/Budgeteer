@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-# import plotly.graph_objects as go
+import plotly.graph_objects as go
 import numpy as np
 
 # Constants
@@ -21,7 +21,7 @@ SAMPLE = pd.DataFrame([
 
 # Functions
 def initialize_table():
-    st.session_state.df = pd.DataFrame(columns=COLUMNS)
+    st.session_state.df = pd.DataFrame(columns=S_COLS)
 
 def load_sample():
     st.session_state.df = SAMPLE
@@ -61,7 +61,7 @@ with data:
 
 with insights:
     df = pd.DataFrame(st.session_state.df)
-    left, right = st.columns([1,2])
+    left, buff, right = st.columns([2,1,3])
 
     with left: # Total Income vs Expenses
         bar_data = {'Income': [], 'Expenses': []}
@@ -77,10 +77,23 @@ with insights:
                 tot_expenses = tot_expenses + df[(df['Allocation'] == name)]['Amount'].sum()
             bar_data['Income'] += [tot_income]
             bar_data['Expenses'] += [tot_expenses]
-        st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=accounts))
+        if len(bar_data['Income']) > 0:
+            st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=accounts))
 
-    # with right:
-        # sankey = go.Sankey(link=link, node=node)
-        # fig = go.Figure(sankey)
-        # fig.update_layout(margin=dict(l=0, r=0, t=5, b=5))
-        # st.plotly_chart(fig, use_container_width=True)
+    with right:
+        s, t, v = 'source', 'target', 'value'
+        s_t_v_data = []
+        income_lines = df[(df['Category'] == 'Income')].loc[:, 'Amount']
+        for description, amount in zip(income_lines.index, income_lines):
+            s_t_v_data.append({s: description, t: 'Total Income', v: amount})
+        if len(s_t_v_data) > 0:
+            sankey_df = pd.DataFrame(s_t_v_data)
+            nodes = np.unique(sankey_df[['source', 'target']], axis=None)
+            nodes = pd.Series(index=nodes, data=range(len(nodes)))
+            sankey = go.Sankey(node={'label': nodes.index}, 
+                link={'source': nodes.loc[sankey_df['source']],
+                    'target': nodes.loc[sankey_df['target']],
+                    'value': sankey_df['value']})
+            fig = go.Figure(data=sankey)
+            fig.update_layout(margin=dict(l=0, r=0, t=5, b=100))
+            st.plotly_chart(fig, use_container_width=True)
