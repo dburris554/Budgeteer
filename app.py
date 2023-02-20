@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
-from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGrid
+from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, GridUpdateMode, AgGrid
 
 # Constants
 S_COLS = ('Day', 'Description', 'Category', 'Amount', 'Allocation', 'Cleared')
@@ -16,7 +16,8 @@ S_DATA = [(1, 'Paycheck 1', 'Income', 2000.59, 'ABC Bank', 'Yes'),
 SAMPLE = pd.DataFrame([dict(zip(S_COLS, S_DATA[i])) for i in range(len(S_DATA))])
 
 # Global data
-df = pd.DataFrame(columns=S_COLS)
+df = pd.DataFrame(columns=S_COLS) # data pre-AgGrid modifications
+grid_df = pd.DataFrame() # data post-AgGrid modifications
 if 'df' in st.session_state:
     df = pd.DataFrame(st.session_state.df)
 else:
@@ -34,9 +35,14 @@ def load_sample():
     st.session_state.df = df
 
 def append_rows(dataframe):
-    global df
-    df = pd.concat([df, dataframe])
-    st.session_state.df = df
+    global grid_df
+    if grid_df.empty:
+        global df
+        df = pd.concat([df, dataframe])
+        st.session_state.df = df
+    else:
+        st.session_state.df = pd.concat([grid_df, dataframe])
+
 
 # Streamlit componenets
 st.header("It's a Good Day for Budgeting!")
@@ -56,9 +62,12 @@ with data:
     else:
         gb = GridOptionsBuilder.from_dataframe(df)
         gb.configure_default_column(editable=True, groupable=True)
+        gb.configure_column(field='Amount', header_name='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
         gb.configure_grid_options(domLayout='normal')
         modified_grid = AgGrid(df, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS)
-        st.session_state.df = modified_grid['data']
+        grid_df = modified_grid['data']
+        df = grid_df
+        # try updating the session state right before loading from csv, not here
     left, buff, right = st.columns([1,2,1])
 
     with left:
