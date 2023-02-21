@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
-from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, GridUpdateMode, AgGrid
+from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGrid
 
 # Constants
 S_COLS = ('Day', 'Description', 'Category', 'Amount', 'Allocation', 'Cleared')
@@ -43,6 +43,16 @@ def append_rows(dataframe):
     else:
         st.session_state.df = pd.concat([grid_df, dataframe])
 
+# @st.cache_data
+def convert_to_csv():
+    global grid_df
+    if grid_df.empty:
+        global df
+        data = df
+    else:
+        data = grid_df
+    return data.to_csv(index=False).encode('utf-8')
+
 
 # Streamlit componenets
 st.header("It's a Good Day for Budgeting!")
@@ -56,6 +66,14 @@ with st.sidebar:
         if add:
             st.success('Rows added!', icon="✅")
 
+    csv = convert_to_csv()
+    st.download_button(
+        label="Download data as CSV",
+        data=csv,
+        file_name='budget_export.csv',
+        mime='text/csv',
+    )
+
 with data:
     if df.empty:
         st.dataframe(pd.DataFrame(columns=S_COLS))
@@ -67,7 +85,6 @@ with data:
         modified_grid = AgGrid(df, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS)
         grid_df = modified_grid['data']
         df = grid_df
-        # try updating the session state right before loading from csv, not here
     left, buff, right = st.columns([1,2,1])
 
     with left:
