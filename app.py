@@ -1,4 +1,5 @@
 import streamlit as st
+from pandas import DataFrame
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
@@ -16,47 +17,46 @@ S_DATA = [(1, 'Paycheck 1', 'Income', 2000.59, 'ABC Bank', 'Yes'),
 SAMPLE = pd.DataFrame([dict(zip(S_COLS, S_DATA[i])) for i in range(len(S_DATA))])
 
 # Global data
-df = pd.DataFrame(columns=S_COLS) # data pre-AgGrid modifications
-grid_df = pd.DataFrame() # data post-AgGrid modifications
-if 'df' in st.session_state:
-    df = pd.DataFrame(st.session_state.df)
+cur = pd.DataFrame(columns=S_COLS) # current data
+mod = pd.DataFrame() # data post-AgGrid modifications
+if 'storage' in st.session_state:
+    cur = pd.DataFrame(st.session_state.storage)
 else:
-    st.session_state.df = df
+    st.session_state.storage = cur
 
 # Functions
 def initialize_df():
-    global df
-    df = pd.DataFrame(columns=S_COLS)
-    st.session_state.df = df
+    global cur
+    cur = pd.DataFrame(columns=S_COLS)
+    st.session_state.storage = cur
 
 def load_sample():
-    global df
-    df = SAMPLE
-    st.session_state.df = df
+    global cur
+    cur = SAMPLE
+    st.session_state.storage = cur
 
-def append_rows(dataframe):
-    global grid_df
-    if grid_df.empty:
-        global df
-        df = pd.concat([df, dataframe])
-        st.session_state.df = df
+def append_rows(rows: DataFrame):
+    global mod
+    if mod.empty:
+        global cur
+        cur = pd.concat([cur, rows])
+        st.session_state.storage = cur
     else:
-        st.session_state.df = pd.concat([grid_df, dataframe])
+        st.session_state.storage = pd.concat([mod, rows])
 
-# @st.cache_data
 def convert_to_csv():
-    global grid_df
-    if grid_df.empty:
-        global df
-        data = df
+    global mod
+    if mod.empty:
+        global cur
+        data = cur
     else:
-        data = grid_df
+        data = mod
     return data.to_csv(index=False).encode('utf-8')
 
 
 # Streamlit componenets
 st.header("It's a Good Day for Budgeting!")
-data, insights = st.tabs(['Data', 'Insights'])
+data_tab, insights_tab = st.tabs(['Data', 'Insights'])
 
 with st.sidebar:
     upload = st.file_uploader('Upload budget CSV', 'csv')
@@ -68,23 +68,23 @@ with st.sidebar:
 
     csv = convert_to_csv()
     st.download_button(
-        label="Download data as CSV",
+        label="Download table as CSV",
         data=csv,
         file_name='budget_export.csv',
         mime='text/csv',
     )
 
-with data:
-    if df.empty:
+with data_tab:
+    if cur.empty:
         st.dataframe(pd.DataFrame(columns=S_COLS))
     else:
-        gb = GridOptionsBuilder.from_dataframe(df)
+        gb = GridOptionsBuilder.from_dataframe(cur)
         gb.configure_default_column(editable=True, groupable=True)
         gb.configure_column(field='Amount', header_name='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
         gb.configure_grid_options(domLayout='normal')
-        modified_grid = AgGrid(df, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS)
-        grid_df = modified_grid['data']
-        df = grid_df
+        modified_grid = AgGrid(cur, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS)
+        mod = modified_grid['data']
+        cur = mod
     left, buff, right = st.columns([1,2,1])
 
     with left:
@@ -93,21 +93,21 @@ with data:
     with right:
         st.button('Load sample data', on_click=load_sample)
 
-with insights:
+with insights_tab:
     left, buff, right = st.columns([2,1,3])
-    if not df.empty:
+    if not cur.empty:
         with left: # Bar graph of Income and Allocated Expenses
             bar_data = {'Income': [], 'Expenses': []}
-            accounts = np.unique((df[(df['Category'] == 'Income')]['Allocation'])).tolist()
+            accounts = np.unique((cur[(cur['Category'] == 'Income')]['Allocation'])).tolist()
             for account in accounts:
                 account = str(account)
-                inc_des_amt = df[(df['Category'] == 'Income') & (df['Allocation'] == account)]
+                inc_des_amt = cur[(cur['Category'] == 'Income') & (cur['Allocation'] == account)]
                 tot_income = inc_des_amt['Amount'].sum()
                 income_names = np.unique(inc_des_amt['Description']).tolist()
                 tot_expenses = 0.0
                 for name in income_names:
                     name = str(name)
-                    tot_expenses = tot_expenses + df[(df['Allocation'] == name)]['Amount'].sum()
+                    tot_expenses = tot_expenses + cur[(cur['Allocation'] == name)]['Amount'].sum()
                 bar_data['Income'] += [tot_income]
                 bar_data['Expenses'] += [tot_expenses]
             if len(bar_data['Income']) > 0:
@@ -116,10 +116,10 @@ with insights:
         with right: # Sankey Chart of Income to Total Income to Expense Categories
             s, t, v = 'source', 'target', 'value'
             s_t_v_data = []
-            inc_des_amt = df[(df['Category'] == 'Income')].loc[:, ['Description', 'Amount']]
+            inc_des_amt = cur[(cur['Category'] == 'Income')].loc[:, ['Description', 'Amount']]
             for description, amount in zip(inc_des_amt['Description'].tolist(), inc_des_amt['Amount'].tolist()):
                 s_t_v_data.append({s: description, t: 'Total Income', v: amount})
-            exp_cat_amt = df[(df['Category'] != 'Income')].loc[:, ['Category', 'Amount']]
+            exp_cat_amt = cur[(cur['Category'] != 'Income')].loc[:, ['Category', 'Amount']]
             categories = np.unique(exp_cat_amt['Category']).tolist()
             for category in categories:
                 tot_amount = exp_cat_amt[(exp_cat_amt['Category'] == category)]['Amount'].sum()
