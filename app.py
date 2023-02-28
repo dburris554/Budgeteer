@@ -20,8 +20,10 @@ SAMPLE = pd.DataFrame([dict(zip(S_COLS, S_DATA[i])) for i in range(len(S_DATA))]
 class Mode(Enum):
     APPEND = 1
     REMOVE = 2
-
-MODE = Enum('Mode', ['APPEND', 'REMOVE'])
+    def __eq__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value == other.value
+        return NotImplemented
 
 # Global data
 cur = pd.DataFrame(columns=S_COLS) # current data
@@ -31,9 +33,11 @@ if 'storage' in st.session_state:
     cur = pd.DataFrame(st.session_state.storage)
 else:
     st.session_state.storage = cur
+if 'csv' not in st.session_state:
+   st.session_state.csv = ''
 empty_row = pd.DataFrame([["" if c != 'Amount' else 0 for c in cur.columns]], columns=cur.columns)
 
-# Functions
+# Callback Functions
 def initialize_df():
     global cur
     cur = pd.DataFrame(columns=S_COLS)
@@ -45,21 +49,21 @@ def load_sample():
     st.session_state.storage = cur
 
 def mutate(rows: DataFrame, mode):
-    if mode not in MODE:
+    if mode not in Mode:
         raise ValueError('Invalid mode')
     global mod
     if mod.empty:
         global cur
-        if mode is MODE.APPEND:
+        if mode == Mode.APPEND:
             cur = pd.concat([cur, rows])
-        elif mode is MODE.REMOVE:
+        elif mode == Mode.REMOVE:
             cur = pd.merge(cur, rows, how='outer', indicator=True).query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
         st.session_state.storage = cur
     else:
         temp = pd.DataFrame()
-        if mode is MODE.APPEND:
+        if mode == Mode.APPEND:
             temp = pd.concat([mod, rows])
-        elif mode is MODE.REMOVE:
+        elif mode == Mode.REMOVE:
             temp = pd.merge(mod, rows, how='outer', indicator=True).query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
         st.session_state.storage = temp
 
@@ -70,8 +74,7 @@ def convert_to_csv():
         data = cur
     else:
         data = mod
-    return data.to_csv(index=False).encode('utf-8')
-
+    st.session_state.csv = data.to_csv(index=False).encode('utf-8')
 
 # Streamlit componenets
 st.header("It's a Good Day for Budgeting!")
@@ -81,16 +84,21 @@ with st.sidebar:
     upload = st.file_uploader('Upload budget CSV', 'csv')
     if upload is not None:
         dataframe = pd.read_csv(upload)
-        add = st.button('Add rows', on_click=mutate, args=[dataframe, MODE.APPEND]) # type: ignore
+        add = st.button('Add rows', on_click=mutate, args=[dataframe, Mode.APPEND]) # type: ignore
         if add:
             st.success('Rows added!', icon="✅")
 
-    csv = convert_to_csv()
-    st.download_button(
-        label="Download table as CSV",
-        data=csv,
-        file_name='budget_export.csv',
-        mime='text/csv',
+    buffer1, buffer2 = st.empty(), st.empty()
+    buffer1.text('')
+    buffer2.text('')
+    ready = st.button('Prepare table for download', on_click=convert_to_csv)
+    if ready:
+        file_name = st.text_input('File Name', value='budget')
+        st.download_button(
+            label='Download table',
+            data=st.session_state.csv,
+            file_name=file_name + '.csv',
+            mime='text/csv',
     )
 
 with data_tab:
@@ -110,13 +118,13 @@ with data_tab:
     left, cent_left, cent_right, right = st.columns([1,1,3,1])
 
     with left:
-        st.button('Delete Selection', on_click=mutate, args=[selected, MODE.REMOVE]) # type: ignore
+        st.button('Delete Selection', on_click=mutate, args=[selected, Mode.REMOVE]) # type: ignore
 
     with cent_left:
         st.button('Clear Table', on_click=initialize_df)
 
     with cent_right:
-        st.button('Add empty row', on_click=mutate, args=[empty_row, MODE.APPEND]) # type: ignore
+        st.button('Add empty row', on_click=mutate, args=[empty_row, Mode.APPEND]) # type: ignore
 
     with right:
         st.button('Load Sample', on_click=load_sample)
