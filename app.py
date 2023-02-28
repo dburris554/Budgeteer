@@ -1,6 +1,7 @@
 import streamlit as st
 from pandas import DataFrame
 import pandas as pd
+from enum import Enum
 import plotly.graph_objects as go
 import numpy as np
 from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGrid
@@ -16,13 +17,21 @@ S_DATA = [(1, 'Paycheck 1', 'Income', 2000.59, 'ABC Bank', 'Yes'),
           (15, 'Walmart', 'Groceries', 150, 'Paycheck 2', 'No')]
 SAMPLE = pd.DataFrame([dict(zip(S_COLS, S_DATA[i])) for i in range(len(S_DATA))])
 
+class Mode(Enum):
+    APPEND = 1
+    REMOVE = 2
+
+MODE = Enum('Mode', ['APPEND', 'REMOVE'])
+
 # Global data
 cur = pd.DataFrame(columns=S_COLS) # current data
 mod = pd.DataFrame() # data post-AgGrid modifications
+selected = None # rows selected from AgGrid
 if 'storage' in st.session_state:
     cur = pd.DataFrame(st.session_state.storage)
 else:
     st.session_state.storage = cur
+empty_row = pd.DataFrame([["" if c != 'Amount' else 0 for c in cur.columns]], columns=cur.columns)
 
 # Functions
 def initialize_df():
@@ -35,14 +44,24 @@ def load_sample():
     cur = SAMPLE
     st.session_state.storage = cur
 
-def append_rows(rows: DataFrame):
+def mutate(rows: DataFrame, mode):
+    if mode not in MODE:
+        raise ValueError('Invalid mode')
     global mod
     if mod.empty:
         global cur
-        cur = pd.concat([cur, rows])
+        if mode is MODE.APPEND:
+            cur = pd.concat([cur, rows])
+        elif mode is MODE.REMOVE:
+            cur = pd.merge(cur, rows, how='outer', indicator=True).query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
         st.session_state.storage = cur
     else:
-        st.session_state.storage = pd.concat([mod, rows])
+        temp = pd.DataFrame()
+        if mode is MODE.APPEND:
+            temp = pd.concat([mod, rows])
+        elif mode is MODE.REMOVE:
+            temp = pd.merge(mod, rows, how='outer', indicator=True).query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
+        st.session_state.storage = temp
 
 def convert_to_csv():
     global mod
@@ -62,7 +81,7 @@ with st.sidebar:
     upload = st.file_uploader('Upload budget CSV', 'csv')
     if upload is not None:
         dataframe = pd.read_csv(upload)
-        add = st.button('Add rows', on_click=append_rows, args=[dataframe]) # type: ignore
+        add = st.button('Add rows', on_click=mutate, args=[dataframe, MODE.APPEND]) # type: ignore
         if add:
             st.success('Rows added!', icon="✅")
 
@@ -81,17 +100,26 @@ with data_tab:
         gb = GridOptionsBuilder.from_dataframe(cur)
         gb.configure_default_column(editable=True, groupable=True)
         gb.configure_column(field='Amount', header_name='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
-        gb.configure_grid_options(domLayout='normal')
+        gb.configure_selection(selection_mode='multiple', use_checkbox=True, suppressRowDeselection=True, suppressRowClickSelection=True)
         modified_grid = AgGrid(cur, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS)
         mod = modified_grid['data']
         cur = mod
-    left, buff, right = st.columns([1,2,1])
+        selected = pd.DataFrame(modified_grid['selected_rows'])
+        if not selected.empty:
+            selected = selected.drop('_selectedRowNodeInfo', axis=1)
+    left, cent_left, cent_right, right = st.columns([1,1,3,1])
 
     with left:
-        st.button('Clear table', on_click=initialize_df)
+        st.button('Delete Selection', on_click=mutate, args=[selected, MODE.REMOVE]) # type: ignore
+
+    with cent_left:
+        st.button('Clear Table', on_click=initialize_df)
+
+    with cent_right:
+        st.button('Add empty row', on_click=mutate, args=[empty_row, MODE.APPEND]) # type: ignore
 
     with right:
-        st.button('Load sample data', on_click=load_sample)
+        st.button('Load Sample', on_click=load_sample)
 
 with insights_tab:
     left, buff, right = st.columns([2,1,3])
