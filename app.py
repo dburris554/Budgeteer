@@ -91,13 +91,14 @@ with st.sidebar:
     buffer1, buffer2 = st.empty(), st.empty()
     buffer1.text('')
     buffer2.text('')
-    ready = st.button('Prepare table for download', on_click=convert_to_csv)
+    name = st.text_input('Download File Name', value='budget')
+    ready = st.button('Prepare Budget for Download!', on_click=convert_to_csv)
     if ready:
-        file_name = st.text_input('File Name', value='budget')
+        file_name = name + '.csv'
         st.download_button(
-            label='Download table',
+            label=f'Download "{file_name}"',
             data=st.session_state.csv,
-            file_name=file_name + '.csv',
+            file_name=file_name,
             mime='text/csv',
     )
 
