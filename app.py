@@ -6,6 +6,17 @@ import plotly.graph_objects as go
 import numpy as np
 from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGrid
 
+# Layout changes
+st.set_page_config(layout="wide")
+hide_streamlit_style = """
+<style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+</style>
+
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 # Constants
 S_COLS = ('Day', 'Description', 'Category', 'Amount', 'Allocation', 'Cleared')
 S_DATA = [(1, 'Paycheck 1', 'Income', 2000.59, 'ABC Bank', 'Yes'),
