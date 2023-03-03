@@ -95,7 +95,7 @@ with st.sidebar:
     upload = st.file_uploader('Upload budget CSV', 'csv')
     if upload is not None:
         dataframe = pd.read_csv(upload)
-        add = st.button('Add rows', on_click=mutate, args=[dataframe, Mode.APPEND]) # type: ignore
+        add = st.button('Add rows', use_container_width=True, on_click=mutate, args=[dataframe, Mode.APPEND]) # type: ignore
         if add:
             st.success('Rows added!', icon="✅")
 
