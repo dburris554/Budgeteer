@@ -89,7 +89,7 @@ def convert_to_csv():
 
 # Streamlit componenets
 st.header("It's a Good Day for Budgeting!")
-data_tab, insights_tab = st.tabs(['Data', 'Insights'])
+data_tab, insights_tab, about_tab = st.tabs(['Data', 'Insights', 'About'])
 
 with st.sidebar:
     upload = st.file_uploader('Upload budget CSV', 'csv')
@@ -121,25 +121,25 @@ with data_tab:
         gb.configure_default_column(editable=True, groupable=True)
         gb.configure_column(field='Amount', header_name='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
         gb.configure_selection(selection_mode='multiple', use_checkbox=True, suppressRowDeselection=True, suppressRowClickSelection=True)
-        modified_grid = AgGrid(cur, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS)
+        modified_grid = AgGrid(cur, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW)
         mod = modified_grid['data']
         cur = mod
         selected = pd.DataFrame(modified_grid['selected_rows'])
         if not selected.empty:
             selected = selected.drop('_selectedRowNodeInfo', axis=1)
-    left, cent_left, cent_right, right = st.columns([1,1,3,1])
+    left, cent_left, cent_right, _, right = st.columns([1,1,1,2,1], gap="medium")
 
     with left:
-        st.button('Delete Selection', on_click=mutate, args=[selected, Mode.REMOVE]) # type: ignore
+        st.button('Delete Selection', use_container_width=True, on_click=mutate, args=[selected, Mode.REMOVE]) # type: ignore
 
     with cent_left:
-        st.button('Clear Table', on_click=initialize_df)
+        st.button('Clear Table', use_container_width=True, on_click=initialize_df)
 
     with cent_right:
-        st.button('Add empty row', on_click=mutate, args=[empty_row, Mode.APPEND]) # type: ignore
+        st.button('Add empty row', use_container_width=True, on_click=mutate, args=[empty_row, Mode.APPEND]) # type: ignore
 
     with right:
-        st.button('Load Sample', on_click=load_sample)
+        st.button('Load Sample', use_container_width=True, on_click=load_sample)
 
 with insights_tab:
     left, buff, right = st.columns([2,1,3])
@@ -159,7 +159,7 @@ with insights_tab:
                 bar_data['Income'] += [tot_income]
                 bar_data['Expenses'] += [tot_expenses]
             if len(bar_data['Income']) > 0:
-                st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=accounts))
+                st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=accounts), height=480)
 
         with right: # Sankey Chart of Income to Total Income to Expense Categories
             s, t, v = 'source', 'target', 'value'
@@ -181,8 +181,8 @@ with insights_tab:
                         'target': nodes.loc[sankey_df['target']],
                         'value': sankey_df['value']})
                 fig = go.Figure(data=sankey)
-                fig.update_layout(margin=dict(l=0, r=0, t=5, b=100))
+                fig.update_layout(margin=dict(l=0, r=0, t=5, b=30))
                 st.plotly_chart(fig, use_container_width=True)
 
 # Debugging
-st.write("Session State", st.session_state)
+# st.write("Session State", st.session_state)
