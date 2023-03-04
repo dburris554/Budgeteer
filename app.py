@@ -85,7 +85,7 @@ def convert_to_csv():
         data = cur
     else:
         data = mod
-    st.session_state.csv = data.to_csv(index=False).encode('utf-8')
+    st.session_state.csv = data.sort_values('Day').to_csv(index=False).encode('utf-8')
 
 # Streamlit componenets
 st.header("It's a Good Day for Budgeting!")
