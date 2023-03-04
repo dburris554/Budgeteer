@@ -48,8 +48,8 @@ else:
     st.session_state.storage = cur
 if 'csv' not in st.session_state:
    st.session_state.csv = ''
-fw.preload()
-lookup = dict(zip(S_COLS, [0, fw.generate(3), fw.generate(1), 0.0, 'some income', 'maybe']))
+fw.preload() # type: ignore
+lookup = dict(zip(S_COLS, [0, fw.generate(3), fw.generate(1), 0.0, 'some income', 'maybe'])) # type: ignore
 new_row = pd.DataFrame([[lookup[c] if c in lookup.keys() else '' for c in cur.columns]], columns=cur.columns)
 
 # Callback Functions
@@ -94,6 +94,7 @@ def convert_to_csv():
         data = cur
     else:
         data = mod
+    data['Day'] = data['Day'].astype(int)
     st.session_state.csv = data.sort_values('Day').to_csv(index=False).encode('utf-8')
 
 # Streamlit componenets
