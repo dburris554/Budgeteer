@@ -131,7 +131,7 @@ with data_tab:
         gb.configure_default_column(editable=True, groupable=True)
         gb.configure_column(field='Amount', header_name='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
         gb.configure_selection(selection_mode='multiple', use_checkbox=True, suppressRowDeselection=True, suppressRowClickSelection=True)
-        modified_grid = AgGrid(cur, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW)
+        modified_grid = AgGrid(cur, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW, enable_enterprise_modules=False)
         mod = modified_grid['data']
         cur = mod
         selected = pd.DataFrame(modified_grid['selected_rows'])
