@@ -4,6 +4,7 @@ import pandas as pd
 from enum import Enum
 import plotly.graph_objects as go
 import numpy as np
+import friendlywords as fw
 from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGrid
 
 # Layout changes
@@ -30,7 +31,8 @@ SAMPLE = pd.DataFrame([dict(zip(S_COLS, S_DATA[i])) for i in range(len(S_DATA))]
 
 class Mode(Enum):
     APPEND = 1
-    REMOVE = 2
+    PREPEND = 2
+    REMOVE = 3
     def __eq__(self, other):
         if self.__class__ is other.__class__:
             return self.value == other.value
@@ -46,7 +48,9 @@ else:
     st.session_state.storage = cur
 if 'csv' not in st.session_state:
    st.session_state.csv = ''
-empty_row = pd.DataFrame([["" if c != 'Amount' else 0 for c in cur.columns]], columns=cur.columns)
+fw.preload()
+lookup = dict(zip(S_COLS, [0, fw.generate(3), fw.generate(1), 0.0, 'some income', 'maybe']))
+new_row = pd.DataFrame([[lookup[c] if c in lookup.keys() else '' for c in cur.columns]], columns=cur.columns)
 
 # Callback Functions
 def initialize_df():
@@ -67,6 +71,8 @@ def mutate(rows: DataFrame, mode):
         global cur
         if mode == Mode.APPEND:
             cur = pd.concat([cur, rows])
+        elif mode == Mode.PREPEND:
+            cur = pd.concat([rows, cur])
         elif mode == Mode.REMOVE:
             cur = pd.merge(cur, rows, how='outer', indicator=True).query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
         st.session_state.storage = cur
@@ -74,7 +80,10 @@ def mutate(rows: DataFrame, mode):
         temp = pd.DataFrame()
         if mode == Mode.APPEND:
             temp = pd.concat([mod, rows])
+        elif mode == Mode.PREPEND:
+            temp = pd.concat([rows, mod])
         elif mode == Mode.REMOVE:
+            mod['Day'] = mod['Day'].astype(int)
             temp = pd.merge(mod, rows, how='outer', indicator=True).query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
         st.session_state.storage = temp
 
@@ -127,19 +136,18 @@ with data_tab:
         selected = pd.DataFrame(modified_grid['selected_rows'])
         if not selected.empty:
             selected = selected.drop('_selectedRowNodeInfo', axis=1)
-    left, cent_left, cent_right, _, right = st.columns([1,1,1,2,1], gap="medium")
+    left, cent, _, right = st.columns([1,1,2,1], gap="medium")
 
     with left:
-        st.button('Delete Selection', use_container_width=True, on_click=mutate, args=[selected, Mode.REMOVE]) # type: ignore
+        disabled = selected is None or selected.empty
+        st.button('Delete Selection', use_container_width=True, disabled=disabled, on_click=mutate, args=[selected, Mode.REMOVE]) # type: ignore
 
-    with cent_left:
-        st.button('Clear Table', use_container_width=True, on_click=initialize_df)
-
-    with cent_right:
-        st.button('Add empty row', use_container_width=True, on_click=mutate, args=[empty_row, Mode.APPEND]) # type: ignore
+    with cent:
+        st.button('Add New Row', use_container_width=True, on_click=mutate, args=[new_row, Mode.PREPEND]) # type: ignore
 
     with right:
-        st.button('Load Sample', use_container_width=True, on_click=load_sample)
+        st.button('Load Sample', use_container_width=True, type='primary', on_click=load_sample)
+        st.button('Clear Table', use_container_width=True, type='primary', on_click=initialize_df)
 
 with insights_tab:
     left, buff, right = st.columns([2,1,3])
