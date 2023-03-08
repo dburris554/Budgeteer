@@ -9,13 +9,16 @@ from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGrid
 
 # Layout changes
 st.set_page_config(layout="wide")
-hide_streamlit_style = """
+hide_streamlit_style = '''
 <style>
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
+.block-container {
+    padding-top: 1rem;
+}
 </style>
 
-"""
+'''
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Constants
@@ -67,6 +70,8 @@ def mutate(rows: DataFrame, mode):
     if mode not in Mode:
         raise ValueError('Invalid mode')
     global mod
+    rows['Day'] = rows['Day'].astype(int)
+    rows['Amount'] = rows['Amount'].astype(float)
     if mod.empty:
         global cur
         if mode == Mode.APPEND:
@@ -83,7 +88,6 @@ def mutate(rows: DataFrame, mode):
         elif mode == Mode.PREPEND:
             temp = pd.concat([rows, mod])
         elif mode == Mode.REMOVE:
-            mod['Day'] = mod['Day'].astype(int)
             temp = pd.merge(mod, rows, how='outer', indicator=True).query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
         st.session_state.storage = temp
 
@@ -98,7 +102,7 @@ def convert_to_csv():
     st.session_state.csv = data.sort_values('Day').to_csv(index=False).encode('utf-8')
 
 # Streamlit componenets
-st.header("It's a Good Day for Budgeting!")
+st.header("It's a Good Day for Budgeting! :slightly_smiling_face:")
 data_tab, insights_tab, about_tab = st.tabs(['Data', 'Insights', 'About'])
 
 with st.sidebar:
@@ -109,9 +113,7 @@ with st.sidebar:
         if add:
             st.success('Rows added!', icon="✅")
 
-    buffer1, buffer2 = st.empty(), st.empty()
-    buffer1.text('')
-    buffer2.text('')
+    st.markdown('---')
     name = st.text_input('Download File Name', value='budget')
     ready = st.button('Prepare Budget for Download!', on_click=convert_to_csv)
     if ready:
@@ -128,14 +130,19 @@ with data_tab:
         st.dataframe(pd.DataFrame(columns=S_COLS))
     else:
         gb = GridOptionsBuilder.from_dataframe(cur)
-        gb.configure_default_column(editable=True, groupable=True)
+        gb.configure_pagination(paginationAutoPageSize=False)
+        gb.configure_default_column(editable=True)
         gb.configure_column(field='Amount', header_name='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
         gb.configure_selection(selection_mode='multiple', use_checkbox=True, suppressRowDeselection=True, suppressRowClickSelection=True)
-        modified_grid = AgGrid(cur, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW, enable_enterprise_modules=False)
+        modified_grid = AgGrid(cur, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS, enable_enterprise_modules=False)
         mod = modified_grid['data']
+        mod['Day'] = mod['Day'].astype(int)
+        mod['Amount'] = mod['Amount'].astype(float)
         cur = mod
         selected = pd.DataFrame(modified_grid['selected_rows'])
         if not selected.empty:
+            selected['Day'] = selected['Day'].astype(int)
+            selected['Amount'] = selected['Amount'].astype(float)
             selected = selected.drop('_selectedRowNodeInfo', axis=1)
     left, cent, _, right = st.columns([1,1,2,1], gap="medium")
 
