@@ -22,14 +22,14 @@ footer {visibility: hidden;}
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Constants
-S_COLS = ('Day', 'Description', 'Category', 'Amount', 'Allocation', 'Cleared')
-S_DATA = [(1, 'Paycheck 1', 'Income', 2000.59, 'ABC Bank', 'Yes'),
-          (2, 'Rent', 'Housing', 1000, 'Paycheck 1', 'Yes'),
-          (2, 'Electric', 'Housing', 205.42, 'Paycheck 1', 'No'),
-          (7, 'Paycheck 2', 'Income', 500, 'Ameri-bank', 'No'),
-          (12, 'Doctor appt.', 'Medical', 60, 'Paycheck 2', 'No'),
-          (14, 'Car payment', 'Loans', 300, 'Paycheck 1', 'No'),
-          (15, 'Walmart', 'Groceries', 150, 'Paycheck 2', 'No')]
+S_COLS = ('Day', 'Description', 'Category', 'Amount', 'Allocation', 'Automatic', 'Paid', 'Cleared')
+S_DATA = [(1, 'Paycheck 1', 'Income', 2000.59, 'ABC Bank', 'Yes', '<N/A>', 'Yes'),
+          (2, 'Rent', 'Housing', 1000, 'Paycheck 1', 'No', 'Yes', 'Yes'),
+          (2, 'Electric', 'Housing', 205.42, 'Paycheck 1', 'No', 'No', 'No'),
+          (7, 'Paycheck 2', 'Income', 500, 'Ameri-bank', 'Yes', '<N/A>', 'No'),
+          (12, 'Doctor appt.', 'Medical', 60, 'Paycheck 2', 'No', 'No', 'No'),
+          (14, 'Car payment', 'Loans', 300, 'Paycheck 1', 'Yes', '<N/A>', 'No'),
+          (15, 'Walmart', 'Groceries', 150, 'Paycheck 2', 'No', 'No', 'No')]
 SAMPLE = pd.DataFrame([dict(zip(S_COLS, S_DATA[i])) for i in range(len(S_DATA))])
 
 class Mode(Enum):
@@ -52,7 +52,7 @@ else:
 if 'csv' not in st.session_state:
    st.session_state.csv = ''
 fw.preload() # type: ignore
-lookup = dict(zip(S_COLS, [0, fw.generate(3), fw.generate(1), 0.0, 'some income', 'maybe'])) # type: ignore
+lookup = dict(zip(S_COLS, [0, fw.generate(3), fw.generate(1), 0.0, '', '', '', ''])) # type: ignore
 new_row = pd.DataFrame([[lookup[c] if c in lookup.keys() else '' for c in cur.columns]], columns=cur.columns)
 
 # Callback Functions
