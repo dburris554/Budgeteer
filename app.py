@@ -117,15 +117,10 @@ with st.sidebar:
 
     st.markdown('---')
     name = st.text_input('Download File Name', value='budget')
-    ready = st.button('Prepare Budget for Download!', on_click=convert_to_csv)
+    ready = st.button('Prepare Budget for Download!', use_container_width=True, on_click=convert_to_csv)
     if ready:
         file_name = name + '.csv'
-        st.download_button(
-            label=f'Download "{file_name}"',
-            data=st.session_state.csv,
-            file_name=file_name,
-            mime='text/csv',
-    )
+        st.download_button(label=f'Download "{file_name}"', use_container_width=True, data=st.session_state.csv, file_name=file_name, mime='text/csv')
 
 with data_tab:
     if cur.empty:
