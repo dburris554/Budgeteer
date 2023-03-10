@@ -82,6 +82,8 @@ def mutate(rows: DataFrame, mode):
             cur = pd.merge(cur, rows, how='outer', indicator=True).query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
         st.session_state.storage = cur
     else:
+        mod['Day'] = mod['Day'].astype(int)
+        mod['Amount'] = mod['Amount'].astype(float)
         temp = pd.DataFrame()
         if mode == Mode.APPEND:
             temp = pd.concat([mod, rows])
@@ -136,8 +138,6 @@ with data_tab:
         gb.configure_selection(selection_mode='multiple', use_checkbox=True, suppressRowDeselection=True, suppressRowClickSelection=True)
         modified_grid = AgGrid(cur, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS, enable_enterprise_modules=False)
         mod = modified_grid['data']
-        mod['Day'] = mod['Day'].astype(int)
-        mod['Amount'] = mod['Amount'].astype(float)
         cur = mod
         selected = pd.DataFrame(modified_grid['selected_rows'])
         if not selected.empty:
