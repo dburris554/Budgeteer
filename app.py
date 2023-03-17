@@ -222,5 +222,9 @@ with insights_tab:
                 fig.update_layout(margin=dict(l=0, r=0, t=5, b=30))
                 st.plotly_chart(fig, use_container_width=True)
 
+with about_tab:
+    st.markdown('Budgeteer documentation coming soon!')
+    st.markdown('Currently serving `v0.10.0`')
+
 # Debugging
 # st.write("Session State", st.session_state)
