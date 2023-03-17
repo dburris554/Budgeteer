@@ -5,7 +5,7 @@ from enum import Enum
 import plotly.graph_objects as go
 import numpy as np
 import friendlywords as fw
-from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGrid
+from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, JsCode, AgGrid
 
 # Layout changes
 st.set_page_config(layout="wide")
@@ -23,13 +23,13 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Constants
 S_COLS = ('Day', 'Description', 'Category', 'Amount', 'Allocation', 'Automatic', 'Paid', 'Cleared')
-S_DATA = [(1, 'Paycheck 1', 'Income', 2000.59, 'ABC Bank', 'Yes', '<N/A>', 'Yes'),
-          (2, 'Rent', 'Housing', 1000, 'Paycheck 1', 'No', 'Yes', 'Yes'),
-          (2, 'Electric', 'Housing', 205.42, 'Paycheck 1', 'No', 'No', 'No'),
-          (7, 'Paycheck 2', 'Income', 500, 'Ameri-bank', 'Yes', '<N/A>', 'No'),
-          (12, 'Doctor appt.', 'Medical', 60, 'Paycheck 2', 'No', 'No', 'No'),
-          (14, 'Car payment', 'Loans', 300, 'Paycheck 1', 'Yes', '<N/A>', 'No'),
-          (15, 'Walmart', 'Groceries', 150, 'Paycheck 2', 'No', 'No', 'No')]
+S_DATA = [(1, 'Paycheck 1', 'Income', 2000.59, 'ABC Bank', 'True', 'False', 'True'),
+          (2, 'Rent', 'Housing', 1000, 'Paycheck 1', 'False', 'True', 'True'),
+          (2, 'Electric', 'Housing', 205.42, 'Paycheck 1', 'False', 'False', 'False'),
+          (7, 'Paycheck 2', 'Income', 500, 'Ameri-bank', 'True', 'False', 'False'),
+          (12, 'Doctor appt.', 'Medical', 60, 'Paycheck 2', 'False', 'False', 'False'),
+          (14, 'Car payment', 'Loans', 300, 'Paycheck 1', 'True', 'False', 'False'),
+          (15, 'Walmart', 'Groceries', 150, 'Paycheck 2', 'False', 'False', 'False')]
 SAMPLE = pd.DataFrame([dict(zip(S_COLS, S_DATA[i])) for i in range(len(S_DATA))])
 
 class Mode(Enum):
@@ -52,8 +52,8 @@ else:
 if 'csv' not in st.session_state:
    st.session_state.csv = ''
 fw.preload() # type: ignore
-lookup = dict(zip(S_COLS, [0, fw.generate(3), fw.generate(1), 0.0, '', '', '', ''])) # type: ignore
-new_row = pd.DataFrame([[lookup[c] if c in lookup.keys() else '' for c in cur.columns]], columns=cur.columns)
+lookup = dict(zip(S_COLS, [0, fw.generate(3), fw.generate(1), 0.0, ' ', 'False', 'False', 'False'])) # type: ignore
+new_row = pd.DataFrame([[lookup[c] if c in lookup.keys() else ' ' for c in cur.columns]], columns=cur.columns)
 
 # Callback Functions
 def initialize_df():
@@ -130,8 +130,35 @@ with data_tab:
         gb.configure_pagination(paginationAutoPageSize=False)
         gb.configure_default_column(editable=True)
         gb.configure_column(field='Amount', header_name='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
+        cb_renderer = JsCode("""
+        class CBRenderer{
+            init(params) {
+                this.params = params;
+                this.eGui = document.createElement('input');
+                this.eGui.type = 'checkbox';
+                this.eGui.checked = params.value == 'True' || params.value == true;
+                this.checkedHandler = this.checkedHandler.bind(this);
+                this.eGui.addEventListener('click', this.checkedHandler);
+            }
+
+            checkedHandler(e) {
+                let checked = e.target.checked;
+                let colId = this.params.column.colId;
+                this.params.node.setDataValue(colId, checked);
+            }
+
+            getGui(params) {
+                return this.eGui;
+            }
+
+            destroy(params) {
+                this.eGui.removeEventListener('click', this.checkedHandler);
+            }
+        }
+        """)
+        gb.configure_columns(column_names=['Automatic', 'Paid', 'Cleared'], cellRenderer=cb_renderer)
         gb.configure_selection(selection_mode='multiple', use_checkbox=True, suppressRowDeselection=True, suppressRowClickSelection=True)
-        modified_grid = AgGrid(cur, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS, enable_enterprise_modules=False)
+        modified_grid = AgGrid(cur, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS, enable_enterprise_modules=False, allow_unsafe_jscode=True)
         mod = modified_grid['data']
         cur = mod
         selected = pd.DataFrame(modified_grid['selected_rows'])
