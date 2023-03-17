@@ -94,7 +94,7 @@ def mutate(rows: DataFrame, mode):
         elif mode == Mode.PREPEND:
             temp = pd.concat([rows, mod])
         elif mode == Mode.REMOVE:
-            temp = pd.merge(mod, rows, how='outer', indicator=True).query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
+            temp = pd.merge(mod, rows, how='outer', indicator=True).query("_merge != 'both' & _merge != 'right_only'").drop('_merge', axis=1).reset_index(drop=True)
         st.session_state.storage = temp
 
 def convert_to_csv():
@@ -231,4 +231,4 @@ with about_tab:
     st.markdown('Currently serving `v0.10.1`')
 
 # Debugging
-st.write("Session State", st.session_state)
+# st.write("Session State", st.session_state)
