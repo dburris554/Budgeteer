@@ -74,6 +74,10 @@ def mutate(rows: DataFrame, mode):
     rows['Amount'] = rows['Amount'].astype(float)
     if mod.empty:
         global cur
+        if cur.empty:
+            rows['Automatic'] = rows['Automatic'].astype(str)
+            rows['Paid'] = rows['Paid'].astype(str)
+            rows['Cleared'] = rows['Cleared'].astype(str)
         if mode == Mode.APPEND:
             cur = pd.concat([cur, rows])
         elif mode == Mode.PREPEND:
@@ -227,4 +231,4 @@ with about_tab:
     st.markdown('Currently serving `v0.10.0`')
 
 # Debugging
-# st.write("Session State", st.session_state)
+st.write("Session State", st.session_state)
