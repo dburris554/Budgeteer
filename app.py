@@ -188,20 +188,20 @@ with insights_tab:
     if not cur.empty:
         with left: # Bar graph of Income and Allocated Expenses
             bar_data = {'Income': [], 'Expenses': []}
-            accounts = np.unique((cur[(cur['Category'] == 'Income')]['Allocation'])).tolist()
-            for account in accounts:
-                account = str(account)
-                inc_des_amt = cur[(cur['Category'] == 'Income') & (cur['Allocation'] == account)]
-                tot_income = inc_des_amt['Amount'].sum()
-                income_names = np.unique(inc_des_amt['Description']).tolist()
+            stores = np.unique((cur[(cur['Category'] == 'Income')]['Allocation'])).tolist()
+            for store in stores:
+                store = str(store)
+                incomes = cur[(cur['Category'] == 'Income') & (cur['Allocation'] == store)]
+                tot_income = incomes['Amount'].sum()
+                income_names = np.unique(incomes['Description']).tolist()
                 tot_expenses = 0.0
                 for name in income_names:
                     name = str(name)
-                    tot_expenses = tot_expenses + cur[(cur['Allocation'] == name)]['Amount'].sum()
+                    tot_expenses = tot_expenses + cur[(cur['Category'] != 'Income') & (cur['Allocation'] == name)]['Amount'].sum()
                 bar_data['Income'] += [tot_income]
                 bar_data['Expenses'] += [tot_expenses]
             if len(bar_data['Income']) > 0:
-                st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=accounts), height=480)
+                st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=stores), height=480)
 
         with right: # Sankey Chart of Income to Total Income to Expense Categories
             s, t, v = 'source', 'target', 'value'
