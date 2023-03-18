@@ -133,9 +133,9 @@ with data_tab:
         gb = GridOptionsBuilder.from_dataframe(cur)
         gb.configure_pagination(paginationAutoPageSize=False)
         gb.configure_default_column(editable=True)
-        gb.configure_column(field='Amount', header_name='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
+        gb.configure_column(field='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
         cb_renderer = JsCode("""
-        class CBRenderer{
+        class CBRenderer {
             init(params) {
                 this.params = params;
                 this.eGui = document.createElement('input');
@@ -151,18 +151,54 @@ with data_tab:
                 this.params.node.setDataValue(colId, checked);
             }
 
-            getGui(params) {
+            getGui() {
                 return this.eGui;
             }
 
-            destroy(params) {
+            destroy() {
                 this.eGui.removeEventListener('click', this.checkedHandler);
             }
         }
         """)
         gb.configure_columns(column_names=['Automatic', 'Paid', 'Cleared'], cellRenderer=cb_renderer)
+        income_checker = JsCode("""
+        class IncomeChecker {
+            init(params) {
+                this.eGui = document.createElement('span');
+                this.eGui.innerHTML = this.getInnerHtml(params.value);
+            }
+
+            getGui(params) {
+                return this.eGui;
+            }
+
+            refresh(params) {
+                this.eGui.innerHTML = this.getInnerHtml(params.value);
+                return true;
+            }
+
+            getInnerHtml(value) {
+                if (value == 'Income') {
+                    return `<span style="background-color:palegreen">${value}</span>`;
+                }
+                return `<span>${value}</span>`;
+            }
+        }
+        """)
+        gb.configure_column(field='Category', cellRenderer=income_checker)
         gb.configure_selection(selection_mode='multiple', use_checkbox=True, suppressRowDeselection=True, suppressRowClickSelection=True)
-        modified_grid = AgGrid(cur, gridOptions=gb.build(), columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS, enable_enterprise_modules=False, allow_unsafe_jscode=True)
+        grid_options = gb.build()
+        row_coloring = JsCode("""
+        function(params) {
+            if (params.rowIndex % 2 == 1) {
+                return {
+                    'backgroundColor': 'whitesmoke'
+                }
+            }
+        };
+        """)
+        grid_options['getRowStyle'] = row_coloring
+        modified_grid = AgGrid(cur, gridOptions=grid_options, columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS, enable_enterprise_modules=False, allow_unsafe_jscode=True)
         mod = modified_grid['data']
         cur = mod
         selected = pd.DataFrame(modified_grid['selected_rows'])
