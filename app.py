@@ -54,6 +54,11 @@ if 'csv' not in st.session_state:
 fw.preload() # type: ignore
 lookup = dict(zip(S_COLS, [0, fw.generate(3), fw.generate(1), 0.0, ' ', 'False', 'False', 'False'])) # type: ignore
 new_row = pd.DataFrame([[lookup[c] if c in lookup.keys() else ' ' for c in cur.columns]], columns=cur.columns)
+column_size_mode = ColumnsAutoSizeMode.FIT_CONTENTS
+if 'mode' in st.session_state:
+    column_size_mode = st.session_state.mode
+else:
+    st.session_state.mode = column_size_mode
 
 # Callback Functions
 def initialize_df():
@@ -106,6 +111,14 @@ def convert_to_csv():
         data = mod
     data['Day'] = data['Day'].astype(int)
     st.session_state.csv = data.sort_values('Day').to_csv(index=False).encode('utf-8')
+
+def switch_size_mode():
+    global column_size_mode
+    if column_size_mode == ColumnsAutoSizeMode.FIT_CONTENTS:
+        column_size_mode = ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW
+    elif column_size_mode == ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW:
+        column_size_mode = ColumnsAutoSizeMode.FIT_CONTENTS
+    st.session_state.mode = column_size_mode
 
 # Streamlit componenets
 st.header("It's a Good Day for Budgeting! :slightly_smiling_face:")
@@ -198,7 +211,7 @@ with data_tab:
         };
         """)
         grid_options['getRowStyle'] = row_coloring
-        modified_grid = AgGrid(cur, gridOptions=grid_options, columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS, enable_enterprise_modules=False, allow_unsafe_jscode=True)
+        modified_grid = AgGrid(cur, gridOptions=grid_options, columns_auto_size_mode=column_size_mode, enable_enterprise_modules=False, allow_unsafe_jscode=True)
         mod = modified_grid['data']
         cur = mod
         selected = pd.DataFrame(modified_grid['selected_rows'])
@@ -211,13 +224,14 @@ with data_tab:
     with left:
         disabled = selected is None or selected.empty
         st.button('Delete Selection', use_container_width=True, disabled=disabled, on_click=mutate, args=[selected, Mode.REMOVE]) # type: ignore
+        st.checkbox('Fit Columns to Screen', on_change=switch_size_mode)
 
     with cent:
         st.button('Add New Row', use_container_width=True, on_click=mutate, args=[new_row, Mode.PREPEND]) # type: ignore
 
     with right:
-        st.button('Load Sample', use_container_width=True, type='primary', on_click=load_sample)
         st.button('Clear Table', use_container_width=True, type='primary', on_click=initialize_df)
+        st.button('Load Sample', use_container_width=True, type='primary', on_click=load_sample)
 
 with insights_tab:
     left, buff, right = st.columns([2,1,3])
