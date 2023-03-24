@@ -114,11 +114,13 @@ def convert_to_csv():
 
 def switch_size_mode():
     global column_size_mode
+    global cur
     if column_size_mode == ColumnsAutoSizeMode.FIT_CONTENTS:
         column_size_mode = ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW
     elif column_size_mode == ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW:
         column_size_mode = ColumnsAutoSizeMode.FIT_CONTENTS
     st.session_state.mode = column_size_mode
+    st.session_state.storage = cur
 
 # Streamlit componenets
 st.header("It's a Good Day for Budgeting! :slightly_smiling_face:")
