@@ -238,16 +238,33 @@ with data_tab:
 with insights_tab:
     with st.expander('**Pending Charges**', expanded=True):
         if not cur.empty:
+            cur[cur['Automatic'] == 'true']['Allocation'] = 'True'
+            cur[cur['Automatic'] == 'false']['Allocation'] = 'False'
+            cur[cur['Paid'] == 'true']['Paid'] = 'True'
+            cur[cur['Paid'] == 'false']['Paid'] = 'False'
+            cur[cur['Cleared'] == 'true']['Cleared'] = 'True'
+            cur[cur['Cleared'] == 'false']['Cleared'] = 'False'
             stores = np.unique((cur[(cur['Category'] == 'Income')]['Allocation'])).tolist()
             for store in stores:
                 with st.container():
                     left, right = st.columns([1,3])
+                    store_incomes = np.unique(cur[(cur['Category'] == 'Income') & (cur['Allocation'] == store)]['Description']).tolist()
+                    store_df = pd.DataFrame()
+                    for income_name in store_incomes:
+                        temp = cur[(cur['Category'] != 'Income') & (cur['Allocation'] == income_name)]
+                        data_auto = temp[(temp['Automatic'] == 'True') & (temp['Cleared'] == 'False')]
+                        data_paid = temp[(temp['Paid'] == 'True') & (temp['Cleared'] == 'False')]
+                        if not store_df.empty:
+                            store_df = pd.concat([store_df, data_auto])
+                            store_df = pd.concat([store_df, data_paid])
+                        else:
+                            store_df = pd.concat([data_auto, data_paid])
+                    sum = store_df['Amount'].sum()
                     with left:
-                        st.markdown(f'#### {store}')
-                        sum = 150.25
-                        st.metric(label='**Sum of Charges**', value=f'${sum}')
+                        st.markdown(f'### {store}')
                     with right:
-                        st.dataframe(cur.head()) # Temporary
+                        st.metric(label='**Sum of Charges**', value=f'${sum}')
+                        st.dataframe(store_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_index(), use_container_width=True)
 
     with st.expander('**Data Exploration**', expanded=True):
         left, buff, right = st.columns([2,1,3])
