@@ -236,47 +236,82 @@ with data_tab:
         st.button('Load Sample', use_container_width=True, type='primary', on_click=load_sample)
 
 with insights_tab:
-    left, buff, right = st.columns([2,1,3])
-    if not cur.empty:
-        with left: # Bar graph of Income and Allocated Expenses
-            bar_data = {'Income': [], 'Expenses': []}
+    cur[cur['Automatic'] == 'true']['Allocation'] = 'True'
+    cur[cur['Automatic'] == 'false']['Allocation'] = 'False'
+    cur[cur['Paid'] == 'true']['Paid'] = 'True'
+    cur[cur['Paid'] == 'false']['Paid'] = 'False'
+    cur[cur['Cleared'] == 'true']['Cleared'] = 'True'
+    cur[cur['Cleared'] == 'false']['Cleared'] = 'False'
+    with st.expander('**Pending Charges**', expanded=True):
+        if not cur.empty:
             stores = np.unique((cur[(cur['Category'] == 'Income')]['Allocation'])).tolist()
             for store in stores:
-                store = str(store)
-                incomes = cur[(cur['Category'] == 'Income') & (cur['Allocation'] == store)]
-                tot_income = incomes['Amount'].sum()
-                income_names = np.unique(incomes['Description']).tolist()
-                tot_expenses = 0.0
-                for name in income_names:
-                    name = str(name)
-                    tot_expenses = tot_expenses + cur[(cur['Category'] != 'Income') & (cur['Allocation'] == name)]['Amount'].sum()
-                bar_data['Income'] += [tot_income]
-                bar_data['Expenses'] += [tot_expenses]
-            if len(bar_data['Income']) > 0:
-                st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=stores), height=480)
+                with st.container():
+                    left, right = st.columns([1,3])
+                    store_incomes = np.unique(cur[(cur['Category'] == 'Income') & (cur['Allocation'] == store)]['Description']).tolist()
+                    store_df = pd.DataFrame()
+                    for income_name in store_incomes:
+                        temp = cur[(cur['Category'] != 'Income') & (cur['Allocation'] == income_name)]
+                        data_auto = temp[(temp['Automatic'] == 'True') & (temp['Cleared'] == 'False')] # issue combining filters
+                        data_paid = temp[(temp['Paid'] == 'True') & (temp['Cleared'] == 'False')]
+                        if not store_df.empty:
+                            store_df = pd.concat([store_df, data_auto]) # issue putting 3 dfs in list
+                            store_df = pd.concat([store_df, data_paid])
+                        else:
+                            store_df = pd.concat([data_auto, data_paid])
+                    store_df = store_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_index()
+                    sum = store_df['Amount'].sum()
+                    store_df['Amount'] = store_df['Amount'].apply(lambda x: f'${x:,.2f}')
+                    with left:
+                        st.markdown(f'### {store}')
+                    with right:
+                        st.metric(label='**Sum of Charges**', value=f'${sum:,.2f}')
+                        st.dataframe(store_df, use_container_width=True)
 
-        with right: # Sankey Chart of Income to Total Income to Expense Categories
-            s, t, v = 'source', 'target', 'value'
-            s_t_v_data = []
-            inc_des_amt = cur[(cur['Category'] == 'Income')].loc[:, ['Description', 'Amount']]
-            for description, amount in zip(inc_des_amt['Description'].tolist(), inc_des_amt['Amount'].tolist()):
-                s_t_v_data.append({s: description, t: 'Total Income', v: amount})
-            exp_cat_amt = cur[(cur['Category'] != 'Income')].loc[:, ['Category', 'Amount']]
-            categories = np.unique(exp_cat_amt['Category']).tolist()
-            for category in categories:
-                tot_amount = exp_cat_amt[(exp_cat_amt['Category'] == category)]['Amount'].sum()
-                s_t_v_data.append({s: 'Total Income', t: category, v: tot_amount})
-            if len(s_t_v_data) > 0:
-                sankey_df = pd.DataFrame(s_t_v_data)
-                nodes = np.unique(sankey_df[['source', 'target']], axis=None)
-                nodes = pd.Series(index=nodes, data=range(len(nodes)))
-                sankey = go.Sankey(node={'label': nodes.index},
-                    link={'source': nodes.loc[sankey_df['source']],
-                        'target': nodes.loc[sankey_df['target']],
-                        'value': sankey_df['value']})
-                fig = go.Figure(data=sankey)
-                fig.update_layout(margin=dict(l=0, r=0, t=5, b=30))
-                st.plotly_chart(fig, use_container_width=True)
+    with st.expander('**Data Exploration**', expanded=True):
+        left, buff, right = st.columns([2,1,3])
+        if not cur.empty:
+            with left: # Bar graph of Income and Allocated Expenses
+                with st.container():
+                    bar_data = {'Income': [], 'Expenses': []}
+                    stores = np.unique((cur[(cur['Category'] == 'Income')]['Allocation'])).tolist()
+                    for store in stores:
+                        store = str(store)
+                        incomes = cur[(cur['Category'] == 'Income') & (cur['Allocation'] == store)]
+                        tot_income = incomes['Amount'].sum()
+                        income_names = np.unique(incomes['Description']).tolist()
+                        tot_expenses = 0.0
+                        for name in income_names:
+                            name = str(name)
+                            tot_expenses = tot_expenses + cur[(cur['Category'] != 'Income') & (cur['Allocation'] == name)]['Amount'].sum()
+                        bar_data['Income'] += [tot_income]
+                        bar_data['Expenses'] += [tot_expenses]
+                    if len(bar_data['Income']) > 0:
+                        st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=stores), height=480)
+
+            with right: # Sankey Chart of Income to Total Income to Expense Categories
+                with st.container():
+                    s, t, v = 'source', 'target', 'value'
+                    s_t_v_data = []
+                    inc_des_amt = cur[(cur['Category'] == 'Income')].loc[:, ['Description', 'Amount']]
+                    for description, amount in zip(inc_des_amt['Description'].tolist(), inc_des_amt['Amount'].tolist()):
+                        s_t_v_data.append({s: description, t: 'Total Income', v: amount})
+                    exp_cat_amt = cur[(cur['Category'] != 'Income')].loc[:, ['Category', 'Amount']]
+                    categories = np.unique(exp_cat_amt['Category']).tolist()
+                    for category in categories:
+                        tot_amount = exp_cat_amt[(exp_cat_amt['Category'] == category)]['Amount'].sum()
+                        s_t_v_data.append({s: 'Total Income', t: category, v: tot_amount})
+                    if len(s_t_v_data) > 0:
+                        sankey_df = pd.DataFrame(s_t_v_data)
+                        nodes = np.unique(sankey_df[['source', 'target']], axis=None)
+                        nodes = pd.Series(index=nodes, data=range(len(nodes)))
+                        sankey = go.Sankey(node={'label': nodes.index},
+                            link={'source': nodes.loc[sankey_df['source']],
+                                'target': nodes.loc[sankey_df['target']],
+                                'value': sankey_df['value']})
+                        fig = go.Figure(data=sankey)
+                        fig.update_layout(margin=dict(l=0, r=0, t=5, b=30))
+                        st.plotly_chart(fig, use_container_width=True)
 
 with about_tab:
     st.markdown('Budgeteer documentation coming soon!')
