@@ -287,6 +287,7 @@ with insights_tab:
                         bar_data['Income'] += [tot_income]
                         bar_data['Expenses'] += [tot_expenses]
                     if len(bar_data['Income']) > 0:
+                        st.markdown('### Income Allocation')
                         st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=stores), height=480)
 
             with right: # Sankey Chart of Income to Total Income to Expense Categories
@@ -302,6 +303,7 @@ with insights_tab:
                         tot_amount = exp_cat_amt[(exp_cat_amt['Category'] == category)]['Amount'].sum()
                         s_t_v_data.append({s: 'Total Income', t: category, v: tot_amount})
                     if len(s_t_v_data) > 0:
+                        st.markdown('### Income-Expense Distribution')
                         sankey_df = pd.DataFrame(s_t_v_data)
                         nodes = np.unique(sankey_df[['source', 'target']], axis=None)
                         nodes = pd.Series(index=nodes, data=range(len(nodes)))
