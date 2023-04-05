@@ -132,7 +132,7 @@ with st.sidebar:
         dataframe = pd.read_csv(upload)
         add = st.button('Add rows', use_container_width=True, on_click=mutate, args=[dataframe, Mode.APPEND]) # type: ignore
         if add:
-            st.success('Rows added!', icon="✅")
+            st.success('Rows added!', icon='✅')
 
     st.markdown('---')
     name = st.text_input('Download File Name', value='budget')
@@ -247,26 +247,33 @@ with insights_tab:
             stores = np.unique((cur[(cur['Category'] == 'Income')]['Allocation'])).tolist()
             for store in stores:
                 with st.container():
-                    left, right = st.columns([1,3])
-                    store_incomes = np.unique(cur[(cur['Category'] == 'Income') & (cur['Allocation'] == store)]['Description']).tolist()
-                    store_df = pd.DataFrame()
-                    for income_name in store_incomes:
+                    left, right = st.columns([1,2])
+                    right.markdown('')
+                    left.markdown(f'## {store}')
+                    store_incomes = cur[(cur['Category'] == 'Income') & (cur['Allocation'] == store)]
+                    store_income_names = np.unique(store_incomes['Description']).tolist()
+                    didClear = [True if 'True' in store_incomes[store_incomes['Description'] == name]['Cleared'].values else False for name in store_income_names]
+                    cleared_sum = 0
+                    for income_name, cleared in zip(store_income_names, didClear):
+                        rLeft, rMid = right.columns(2, gap='medium')
                         temp = cur[(cur['Category'] != 'Income') & (cur['Allocation'] == income_name)]
                         data_auto = temp[(temp['Automatic'] == 'True') & (temp['Cleared'] == 'False')] # issue combining filters
                         data_paid = temp[(temp['Paid'] == 'True') & (temp['Cleared'] == 'False')]
-                        if not store_df.empty:
-                            store_df = pd.concat([store_df, data_auto]) # issue putting 3 dfs in list
-                            store_df = pd.concat([store_df, data_paid])
+                        income_df = pd.concat([data_auto, data_paid])
+                        income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_index()
+                        sum = income_df['Amount'].sum()
+                        income_df['Amount'] = income_df['Amount'].apply(lambda x: f'${x:,.2f}')
+                        rLeft.markdown(f'### {income_name}')
+                        if cleared:
+                            cleared_sum += sum
+                            rMid.success('Has Cleared', icon='💲')
                         else:
-                            store_df = pd.concat([data_auto, data_paid])
-                    store_df = store_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_index()
-                    sum = store_df['Amount'].sum()
-                    store_df['Amount'] = store_df['Amount'].apply(lambda x: f'${x:,.2f}')
-                    with left:
-                        st.markdown(f'### {store}')
-                    with right:
-                        st.metric(label='**Sum of Charges**', value=f'${sum:,.2f}')
-                        st.dataframe(store_df, use_container_width=True)
+                            rMid.info('Has Not Cleared', icon='🚫')
+                        right.metric(label='**Sum of Pending**', value=f'${sum:,.2f}')
+                        right.dataframe(income_df, use_container_width=True)
+                        right.markdown('')
+                        right.markdown('')
+                    left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
 
     with st.expander('**Data Exploration**', expanded=True):
         left, buff, right = st.columns([2,1,3])
@@ -317,7 +324,7 @@ with insights_tab:
 
 with about_tab:
     st.markdown('Budgeteer documentation coming soon!')
-    st.markdown('Currently serving `v0.12.1`')
+    st.markdown('Currently serving `v0.12.2`')
 
 # Debugging
 # st.write("Session State", st.session_state)
