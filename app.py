@@ -123,7 +123,7 @@ def switch_size_mode():
     st.session_state.storage = cur
 
 # Streamlit componenets
-st.header("It's a Good Day for Budgeting! :slightly_smiling_face:")
+st.header('Welcome fellow Budgeteer! :slightly_smiling_face:')
 data_tab, insights_tab, about_tab = st.tabs(['Data', 'Insights', 'About'])
 
 with st.sidebar:
@@ -280,6 +280,41 @@ with insights_tab:
                     st.markdown('---')
 
     st.markdown('')
+    with st.expander('**Unpaid Charges**', expanded=True):
+        if not cur.empty:
+            stores = np.unique((cur[(cur['Category'] == 'Income')]['Allocation'])).tolist()
+            for store in stores:
+                with st.container():
+                    left, right = st.columns([1,2])
+                    right.markdown('')
+                    left.markdown(f'## {store}')
+                    store_incomes = cur[(cur['Category'] == 'Income') & (cur['Allocation'] == store)]
+                    store_income_names = np.unique(store_incomes['Description']).tolist()
+                    didClear = [True if 'True' in store_incomes[store_incomes['Description'] == name]['Cleared'].values else False for name in store_income_names]
+                    cleared_sum = 0
+                    for income_name, cleared in zip(store_income_names, didClear):
+                        rLeft, rMid = right.columns(2, gap='medium')
+                        temp = cur[(cur['Category'] != 'Income') & (cur['Allocation'] == income_name)]
+                        income_df = temp[(temp['Automatic'] == 'False') & (temp['Paid'] == 'False') & (temp['Cleared'] == 'False')]
+                        income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_index()
+                        sum = income_df['Amount'].sum()
+                        income_df['Amount'] = income_df['Amount'].apply(lambda x: f'${x:,.2f}')
+                        rLeft.markdown(f'### {income_name}')
+                        if cleared:
+                            cleared_sum += sum
+                            rMid.success('Has Cleared', icon='💲')
+                        else:
+                            rMid.info('Has Not Cleared', icon='🚫')
+                        right.metric(label='**Sum of Unpaid**', value=f'${sum:,.2f}')
+                        right.dataframe(income_df, use_container_width=True)
+                        if income_name != store_income_names[len(store_income_names)-1]:
+                            right.markdown('---')
+                            right.markdown('')
+                    left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
+                if store != stores[len(stores)-1]:
+                    st.markdown('---')
+
+    st.markdown('')
     with st.expander('**Data Exploration**', expanded=True):
         left, buff, right = st.columns([2,1,3])
         if not cur.empty:
@@ -329,7 +364,7 @@ with insights_tab:
 
 with about_tab:
     st.markdown('Budgeteer documentation coming soon!')
-    st.markdown('Currently serving `v0.12.3`')
+    st.markdown('Currently serving `v0.13.0`')
 
 # Debugging
 # st.write("Session State", st.session_state)
