@@ -8,7 +8,7 @@ import friendlywords as fw
 from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, JsCode, AgGrid
 
 # Layout changes
-st.set_page_config(layout="wide")
+st.set_page_config(page_title='Budgeteer', page_icon='🚀', layout="wide", initial_sidebar_state='expanded')
 hide_streamlit_style = '''
 <style>
 #MainMenu {visibility: hidden;}
@@ -236,6 +236,7 @@ with data_tab:
         st.button('Load Sample', use_container_width=True, type='primary', on_click=load_sample)
 
 with insights_tab:
+    cur['Amount'] = cur['Amount'].astype(float)
     cur[cur['Automatic'] == 'true']['Allocation'] = 'True'
     cur[cur['Automatic'] == 'false']['Allocation'] = 'False'
     cur[cur['Paid'] == 'true']['Paid'] = 'True'
@@ -271,10 +272,14 @@ with insights_tab:
                             rMid.info('Has Not Cleared', icon='🚫')
                         right.metric(label='**Sum of Pending**', value=f'${sum:,.2f}')
                         right.dataframe(income_df, use_container_width=True)
-                        right.markdown('')
-                        right.markdown('')
+                        if income_name != store_income_names[len(store_income_names)-1]:
+                            right.markdown('---')
+                            right.markdown('')
                     left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
+                if store != stores[len(stores)-1]:
+                    st.markdown('---')
 
+    st.markdown('')
     with st.expander('**Data Exploration**', expanded=True):
         left, buff, right = st.columns([2,1,3])
         if not cur.empty:
@@ -319,12 +324,12 @@ with insights_tab:
                                 'target': nodes.loc[sankey_df['target']],
                                 'value': sankey_df['value']})
                         fig = go.Figure(data=sankey)
-                        fig.update_layout(margin=dict(l=0, r=0, t=5, b=30))
-                        st.plotly_chart(fig, use_container_width=True)
+                        fig.update_layout(margin=dict(l=0, r=0, t=5, b=30), font_size=14)
+                        st.plotly_chart(fig, use_container_width=True, theme=None)
 
 with about_tab:
     st.markdown('Budgeteer documentation coming soon!')
-    st.markdown('Currently serving `v0.12.2`')
+    st.markdown('Currently serving `v0.12.3`')
 
 # Debugging
 # st.write("Session State", st.session_state)
