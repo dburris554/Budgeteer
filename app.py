@@ -22,17 +22,17 @@ footer {visibility: hidden;}
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Constants
-S_COLS = ('Day', 'Description', 'Category', 'Amount', 'Allocation', 'Automatic', 'Paid', 'Cleared')
-S_DATA = [(1, 'Paycheck 1', 'Income', 2000.59, 'ABC Bank', 'True', 'False', 'True'),
+SAMPLE_COLS = ('Day', 'Description', 'Category', 'Amount', 'Allocation', 'Automatic', 'Paid', 'Cleared')
+SAMPLE_ROWS = [(1, 'Paycheck 1', 'Income', 2000.59, 'ABC Bank', 'True', 'False', 'True'),
           (2, 'Rent', 'Housing', 1000, 'Paycheck 1', 'False', 'True', 'True'),
           (2, 'Electric', 'Housing', 205.42, 'Paycheck 1', 'False', 'False', 'False'),
           (7, 'Paycheck 2', 'Income', 500, 'Ameri-bank', 'True', 'False', 'False'),
           (12, 'Doctor appt.', 'Medical', 60, 'Paycheck 2', 'False', 'False', 'False'),
           (14, 'Car payment', 'Loans', 300, 'Paycheck 1', 'True', 'False', 'False'),
           (15, 'Walmart', 'Groceries', 150, 'Paycheck 2', 'False', 'False', 'False')]
-SAMPLE = pd.DataFrame([dict(zip(S_COLS, S_DATA[i])) for i in range(len(S_DATA))])
+SAMPLE = pd.DataFrame([dict(zip(SAMPLE_COLS, SAMPLE_ROWS[i])) for i in range(len(SAMPLE_ROWS))])
 
-class Mode(Enum):
+class DataFrameMutateMode(Enum):
     APPEND = 1
     PREPEND = 2
     REMOVE = 3
@@ -42,85 +42,79 @@ class Mode(Enum):
         return NotImplemented
 
 # Global data
-cur = pd.DataFrame(columns=S_COLS) # current data
-mod = pd.DataFrame() # data post-AgGrid modifications
+stable = pd.DataFrame(columns=SAMPLE_COLS) # initial loaded data or updated data to be the source of truth
+modified = pd.DataFrame() # data post-AgGrid modifications
 selected = None # rows selected from AgGrid
-if 'storage' in st.session_state:
-    cur = pd.DataFrame(st.session_state.storage)
+if 'dataframe' in st.session_state:
+    stable = pd.DataFrame(st.session_state.dataframe)
 else:
-    st.session_state.storage = cur
+    st.session_state.dataframe = stable
 if 'csv' not in st.session_state:
    st.session_state.csv = ''
 fw.preload() # type: ignore
-lookup = dict(zip(S_COLS, [0, fw.generate(3), fw.generate(1), 0.0, ' ', 'False', 'False', 'False'])) # type: ignore
-new_row = pd.DataFrame([[lookup[c] if c in lookup.keys() else ' ' for c in cur.columns]], columns=cur.columns)
+sample_values = dict(zip(SAMPLE_COLS, [0, fw.generate(3), fw.generate(1), 0.0, ' ', 'False', 'False', 'False'])) # type: ignore
+new_row = pd.DataFrame([[sample_values[col] if col in sample_values.keys() else ' ' for col in stable.columns]], columns=stable.columns)
 column_size_mode = ColumnsAutoSizeMode.FIT_CONTENTS
-if 'mode' in st.session_state:
-    column_size_mode = st.session_state.mode
+if 'size_mode' in st.session_state:
+    column_size_mode = st.session_state.size_mode
 else:
-    st.session_state.mode = column_size_mode
+    st.session_state.size_mode = column_size_mode
 
 # Callback Functions
-def initialize_df():
-    global cur
-    cur = pd.DataFrame(columns=S_COLS)
-    st.session_state.storage = cur
+def load_empty():
+    global stable
+    stable = pd.DataFrame(columns=SAMPLE_COLS)
+    st.session_state.dataframe = stable
 
 def load_sample():
-    global cur
-    cur = SAMPLE
-    st.session_state.storage = cur
+    global stable
+    stable = SAMPLE
+    st.session_state.dataframe = stable
 
-def mutate(rows: DataFrame, mode):
-    if mode not in Mode:
-        raise ValueError('Invalid mode')
-    global mod
+def mutate(rows: DataFrame, mode: DataFrameMutateMode):
+    global modified
     rows['Day'] = rows['Day'].astype(int)
     rows['Amount'] = rows['Amount'].astype(float)
-    if mod.empty:
-        global cur
-        if cur.empty:
+    if modified.empty:
+        global stable
+        if stable.empty:
             rows['Automatic'] = rows['Automatic'].astype(str)
             rows['Paid'] = rows['Paid'].astype(str)
             rows['Cleared'] = rows['Cleared'].astype(str)
-        if mode == Mode.APPEND:
-            cur = pd.concat([cur, rows])
-        elif mode == Mode.PREPEND:
-            cur = pd.concat([rows, cur])
-        elif mode == Mode.REMOVE:
-            cur = pd.merge(cur, rows, how='outer', indicator=True).query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
-        st.session_state.storage = cur
+        if mode == DataFrameMutateMode.APPEND:
+            stable = pd.concat([stable, rows])
+        elif mode == DataFrameMutateMode.PREPEND:
+            stable = pd.concat([rows, stable])
+        elif mode == DataFrameMutateMode.REMOVE:
+            stable = pd.merge(stable, rows, how='outer', indicator=True).query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
+        st.session_state.dataframe = stable
     else:
-        mod['Day'] = mod['Day'].astype(int)
-        mod['Amount'] = mod['Amount'].astype(float)
-        temp = pd.DataFrame()
-        if mode == Mode.APPEND:
-            temp = pd.concat([mod, rows])
-        elif mode == Mode.PREPEND:
-            temp = pd.concat([rows, mod])
-        elif mode == Mode.REMOVE:
-            temp = pd.merge(mod, rows, how='outer', indicator=True).query("_merge != 'both' & _merge != 'right_only'").drop('_merge', axis=1).reset_index(drop=True)
-        st.session_state.storage = temp
+        modified['Day'] = modified['Day'].astype(int)
+        modified['Amount'] = modified['Amount'].astype(float)
+        if mode == DataFrameMutateMode.APPEND:
+            st.session_state.dataframe = pd.concat([modified, rows])
+        elif mode == DataFrameMutateMode.PREPEND:
+            st.session_state.dataframe = pd.concat([rows, modified])
+        elif mode == DataFrameMutateMode.REMOVE:
+            st.session_state.dataframe = pd.merge(modified, rows, how='outer', indicator=True).query("_merge != 'both' & _merge != 'right_only'").drop('_merge', axis=1).reset_index(drop=True)
 
 def convert_to_csv():
-    global mod
-    if mod.empty:
-        global cur
-        data = cur
-    else:
-        data = mod
-    data['Day'] = data['Day'].astype(int)
-    st.session_state.csv = data.sort_values('Day').to_csv(index=False).encode('utf-8')
+    global modified
+    global stable
+    if not modified.empty:
+        stable = modified
+    stable['Day'] = stable['Day'].astype(int)
+    st.session_state.csv = stable.sort_values('Day').to_csv(index=False).encode('utf-8')
 
 def switch_size_mode():
     global column_size_mode
-    global cur
+    global stable
     if column_size_mode == ColumnsAutoSizeMode.FIT_CONTENTS:
         column_size_mode = ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW
     elif column_size_mode == ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW:
         column_size_mode = ColumnsAutoSizeMode.FIT_CONTENTS
-    st.session_state.mode = column_size_mode
-    st.session_state.storage = cur
+    st.session_state.size_mode = column_size_mode
+    st.session_state.dataframe = stable
 
 # Streamlit componenets
 st.header('Welcome fellow Budgeteer! :slightly_smiling_face:')
@@ -130,7 +124,7 @@ with st.sidebar:
     upload = st.file_uploader('Upload budget CSV', 'csv')
     if upload is not None:
         dataframe = pd.read_csv(upload)
-        add = st.button('Add rows', use_container_width=True, on_click=mutate, args=[dataframe, Mode.APPEND]) # type: ignore
+        add = st.button('Add rows', use_container_width=True, on_click=mutate, args=[dataframe, DataFrameMutateMode.APPEND]) # type: ignore
         if add:
             st.success('Rows added!', icon='✅')
 
@@ -142,10 +136,10 @@ with st.sidebar:
         st.download_button(label=f'Download "{file_name}"', use_container_width=True, data=st.session_state.csv, file_name=file_name, mime='text/csv')
 
 with data_tab:
-    if cur.empty:
-        st.dataframe(pd.DataFrame(columns=S_COLS))
+    if stable.empty:
+        st.dataframe(pd.DataFrame(columns=SAMPLE_COLS))
     else:
-        gb = GridOptionsBuilder.from_dataframe(cur)
+        gb = GridOptionsBuilder.from_dataframe(stable)
         gb.configure_pagination(paginationAutoPageSize=False)
         gb.configure_default_column(editable=True)
         gb.configure_column(field='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
@@ -213,53 +207,53 @@ with data_tab:
         };
         """)
         grid_options['getRowStyle'] = row_coloring
-        modified_grid = AgGrid(cur, gridOptions=grid_options, columns_auto_size_mode=column_size_mode, enable_enterprise_modules=False, allow_unsafe_jscode=True)
-        mod = modified_grid['data']
-        cur = mod
+        modified_grid = AgGrid(stable, gridOptions=grid_options, columns_auto_size_mode=column_size_mode, enable_enterprise_modules=False, allow_unsafe_jscode=True)
+        modified = modified_grid['data']
+        stable = modified
         selected = pd.DataFrame(modified_grid['selected_rows'])
         if not selected.empty:
             selected['Day'] = selected['Day'].astype(int)
             selected['Amount'] = selected['Amount'].astype(float)
             selected = selected.drop('_selectedRowNodeInfo', axis=1)
-    left, cent, _, right = st.columns([1,1,2,1], gap="medium")
+    left, center, _, right = st.columns([1,1,2,1], gap="medium")
 
     with left:
         disabled = selected is None or selected.empty
-        st.button('Delete Selection', use_container_width=True, disabled=disabled, on_click=mutate, args=[selected, Mode.REMOVE]) # type: ignore
+        st.button('Delete Selection', use_container_width=True, disabled=disabled, on_click=mutate, args=[selected, DataFrameMutateMode.REMOVE]) # type: ignore
         st.checkbox('Fit Columns to Screen', on_change=switch_size_mode)
 
-    with cent:
-        st.button('Add New Row', use_container_width=True, on_click=mutate, args=[new_row, Mode.PREPEND]) # type: ignore
+    with center:
+        st.button('Add New Row', use_container_width=True, on_click=mutate, args=[new_row, DataFrameMutateMode.PREPEND]) # type: ignore
 
     with right:
-        st.button('Clear Table', use_container_width=True, type='primary', on_click=initialize_df)
+        st.button('Clear Table', use_container_width=True, type='primary', on_click=load_empty)
         st.button('Load Sample', use_container_width=True, type='primary', on_click=load_sample)
 
 with insights_tab:
-    cur['Amount'] = cur['Amount'].astype(float)
-    cur[cur['Automatic'] == 'true']['Allocation'] = 'True'
-    cur[cur['Automatic'] == 'false']['Allocation'] = 'False'
-    cur[cur['Paid'] == 'true']['Paid'] = 'True'
-    cur[cur['Paid'] == 'false']['Paid'] = 'False'
-    cur[cur['Cleared'] == 'true']['Cleared'] = 'True'
-    cur[cur['Cleared'] == 'false']['Cleared'] = 'False'
-    with st.expander('**Pending Charges**', expanded=True):
-        if not cur.empty:
-            stores = np.unique((cur[(cur['Category'] == 'Income')]['Allocation'])).tolist()
+    stable['Amount'] = stable['Amount'].astype(float)
+    stable[stable['Automatic'] == 'true']['Allocation'] = 'True'
+    stable[stable['Automatic'] == 'false']['Allocation'] = 'False'
+    stable[stable['Paid'] == 'true']['Paid'] = 'True'
+    stable[stable['Paid'] == 'false']['Paid'] = 'False'
+    stable[stable['Cleared'] == 'true']['Cleared'] = 'True'
+    stable[stable['Cleared'] == 'false']['Cleared'] = 'False'
+    with st.expander('**Pending Charges**'):
+        if not stable.empty:
+            stores = np.unique((stable[(stable['Category'] == 'Income')]['Allocation'])).tolist()
             for store in stores:
                 with st.container():
                     left, right = st.columns([1,2])
                     right.markdown('')
                     left.markdown(f'## {store}')
-                    store_incomes = cur[(cur['Category'] == 'Income') & (cur['Allocation'] == store)]
+                    store_incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
                     store_income_names = np.unique(store_incomes['Description']).tolist()
                     didClear = [True if 'True' in store_incomes[store_incomes['Description'] == name]['Cleared'].values else False for name in store_income_names]
                     cleared_sum = 0
                     for income_name, cleared in zip(store_income_names, didClear):
-                        rLeft, rMid = right.columns(2, gap='medium')
-                        temp = cur[(cur['Category'] != 'Income') & (cur['Allocation'] == income_name)]
-                        data_auto = temp[(temp['Automatic'] == 'True') & (temp['Cleared'] == 'False')] # issue combining filters
-                        data_paid = temp[(temp['Paid'] == 'True') & (temp['Cleared'] == 'False')]
+                        rLeft, rCenter = right.columns(2, gap='medium')
+                        expenses = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income_name)]
+                        data_auto = expenses[(expenses['Automatic'] == 'True') & (expenses['Cleared'] == 'False')] # issue combining filters
+                        data_paid = expenses[(expenses['Paid'] == 'True') & (expenses['Cleared'] == 'False')]
                         income_df = pd.concat([data_auto, data_paid])
                         income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_index()
                         sum = income_df['Amount'].sum()
@@ -267,9 +261,9 @@ with insights_tab:
                         rLeft.markdown(f'### {income_name}')
                         if cleared:
                             cleared_sum += sum
-                            rMid.success('Has Cleared', icon='💲')
+                            rCenter.success('Has Cleared', icon='💲')
                         else:
-                            rMid.info('Has Not Cleared', icon='🚫')
+                            rCenter.info('Has Not Cleared', icon='🚫')
                         right.metric(label='**Sum of Pending**', value=f'${sum:,.2f}')
                         right.dataframe(income_df, use_container_width=True)
                         if income_name != store_income_names[len(store_income_names)-1]:
@@ -280,31 +274,31 @@ with insights_tab:
                     st.markdown('---')
 
     st.markdown('')
-    with st.expander('**Unpaid Charges**', expanded=True):
-        if not cur.empty:
-            stores = np.unique((cur[(cur['Category'] == 'Income')]['Allocation'])).tolist()
+    with st.expander('**Unpaid Charges**'):
+        if not stable.empty:
+            stores = np.unique((stable[(stable['Category'] == 'Income')]['Allocation'])).tolist()
             for store in stores:
                 with st.container():
                     left, right = st.columns([1,2])
                     right.markdown('')
                     left.markdown(f'## {store}')
-                    store_incomes = cur[(cur['Category'] == 'Income') & (cur['Allocation'] == store)]
+                    store_incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
                     store_income_names = np.unique(store_incomes['Description']).tolist()
                     didClear = [True if 'True' in store_incomes[store_incomes['Description'] == name]['Cleared'].values else False for name in store_income_names]
                     cleared_sum = 0
                     for income_name, cleared in zip(store_income_names, didClear):
-                        rLeft, rMid = right.columns(2, gap='medium')
-                        temp = cur[(cur['Category'] != 'Income') & (cur['Allocation'] == income_name)]
-                        income_df = temp[(temp['Automatic'] == 'False') & (temp['Paid'] == 'False') & (temp['Cleared'] == 'False')]
+                        rLeft, rCenter = right.columns(2, gap='medium')
+                        expenses = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income_name)]
+                        income_df = expenses[(expenses['Automatic'] == 'False') & (expenses['Paid'] == 'False') & (expenses['Cleared'] == 'False')]
                         income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_index()
                         sum = income_df['Amount'].sum()
                         income_df['Amount'] = income_df['Amount'].apply(lambda x: f'${x:,.2f}')
                         rLeft.markdown(f'### {income_name}')
                         if cleared:
                             cleared_sum += sum
-                            rMid.success('Has Cleared', icon='💲')
+                            rCenter.success('Has Cleared', icon='💲')
                         else:
-                            rMid.info('Has Not Cleared', icon='🚫')
+                            rCenter.info('Has Not Cleared', icon='🚫')
                         right.metric(label='**Sum of Unpaid**', value=f'${sum:,.2f}')
                         right.dataframe(income_df, use_container_width=True)
                         if income_name != store_income_names[len(store_income_names)-1]:
@@ -315,43 +309,43 @@ with insights_tab:
                     st.markdown('---')
 
     st.markdown('')
-    with st.expander('**Data Exploration**', expanded=True):
-        left, buff, right = st.columns([2,1,3])
-        if not cur.empty:
+    with st.expander('**Data Exploration**'):
+        left, _, right = st.columns([2,1,3])
+        if not stable.empty:
             with left: # Bar graph of Income and Allocated Expenses
                 with st.container():
                     bar_data = {'Income': [], 'Expenses': []}
-                    stores = np.unique((cur[(cur['Category'] == 'Income')]['Allocation'])).tolist()
+                    stores = np.unique((stable[(stable['Category'] == 'Income')]['Allocation'])).tolist()
                     for store in stores:
                         store = str(store)
-                        incomes = cur[(cur['Category'] == 'Income') & (cur['Allocation'] == store)]
-                        tot_income = incomes['Amount'].sum()
+                        incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
+                        total_income = incomes['Amount'].sum()
                         income_names = np.unique(incomes['Description']).tolist()
-                        tot_expenses = 0.0
+                        total_expenses = 0.0
                         for name in income_names:
                             name = str(name)
-                            tot_expenses = tot_expenses + cur[(cur['Category'] != 'Income') & (cur['Allocation'] == name)]['Amount'].sum()
-                        bar_data['Income'] += [tot_income]
-                        bar_data['Expenses'] += [tot_expenses]
+                            total_expenses = total_expenses + stable[(stable['Category'] != 'Income') & (stable['Allocation'] == name)]['Amount'].sum()
+                        bar_data['Income'] += [total_income]
+                        bar_data['Expenses'] += [total_expenses]
                     if len(bar_data['Income']) > 0:
                         st.markdown('### Income Allocation')
                         st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=stores), height=480)
 
             with right: # Sankey Chart of Income to Total Income to Expense Categories
                 with st.container():
-                    s, t, v = 'source', 'target', 'value'
-                    s_t_v_data = []
-                    inc_des_amt = cur[(cur['Category'] == 'Income')].loc[:, ['Description', 'Amount']]
-                    for description, amount in zip(inc_des_amt['Description'].tolist(), inc_des_amt['Amount'].tolist()):
-                        s_t_v_data.append({s: description, t: 'Total Income', v: amount})
-                    exp_cat_amt = cur[(cur['Category'] != 'Income')].loc[:, ['Category', 'Amount']]
-                    categories = np.unique(exp_cat_amt['Category']).tolist()
+                    source, target, value = 'source', 'target', 'value'
+                    rows = []
+                    income_data = stable[(stable['Category'] == 'Income')].loc[:, ['Description', 'Amount']]
+                    for description, amount in zip(income_data['Description'].tolist(), income_data['Amount'].tolist()):
+                        rows.append({source: description, target: 'Total Income', value: amount})
+                    expense_data = stable[(stable['Category'] != 'Income')].loc[:, ['Category', 'Amount']]
+                    categories = np.unique(expense_data['Category']).tolist()
                     for category in categories:
-                        tot_amount = exp_cat_amt[(exp_cat_amt['Category'] == category)]['Amount'].sum()
-                        s_t_v_data.append({s: 'Total Income', t: category, v: tot_amount})
-                    if len(s_t_v_data) > 0:
+                        category_amount = expense_data[(expense_data['Category'] == category)]['Amount'].sum()
+                        rows.append({source: 'Total Income', target: category, value: category_amount})
+                    if len(rows) > 0:
                         st.markdown('### Income-Expense Distribution')
-                        sankey_df = pd.DataFrame(s_t_v_data)
+                        sankey_df = pd.DataFrame(rows)
                         nodes = np.unique(sankey_df[['source', 'target']], axis=None)
                         nodes = pd.Series(index=nodes, data=range(len(nodes)))
                         sankey = go.Sankey(node={'label': nodes.index},
