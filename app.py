@@ -122,16 +122,18 @@ st.header('Welcome fellow Budgeteer! :slightly_smiling_face:')
 data_tab, insights_tab, about_tab = st.tabs(['Data', 'Insights', 'About'])
 
 with st.sidebar:
+    default_file_name = 'budget'
     upload = st.file_uploader('Upload budget CSV', 'csv')
     if upload is not None:
+        default_file_name = upload.name[:upload.name.find('.')]
         dataframe = pd.read_csv(upload)
         add = st.button('Add rows', use_container_width=True, on_click=mutate, args=[dataframe, DataFrameMutateMode.APPEND]) # type: ignore
         if add:
             st.success('Rows added!', icon='✅')
 
     st.markdown('---')
-    name = st.text_input('Download File Name', value='budget')
-    ready = st.button('Prepare Budget for Download!', use_container_width=True, on_click=convert_to_csv)
+    name = st.text_input('Download File Name', value=default_file_name)
+    ready = st.button('Create Download File!', use_container_width=True, on_click=convert_to_csv)
     if ready:
         file_name = name + '.csv'
         st.download_button(label=f'Download "{file_name}"', use_container_width=True, data=st.session_state.csv, file_name=file_name, mime='text/csv')
