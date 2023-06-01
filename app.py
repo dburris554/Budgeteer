@@ -65,6 +65,7 @@ def load_empty():
     global stable
     stable = pd.DataFrame(columns=SAMPLE_COLS)
     st.session_state.dataframe = stable
+    st.session_state.size_mode = ColumnsAutoSizeMode.FIT_CONTENTS
 
 def load_sample():
     global stable
@@ -220,13 +221,13 @@ with data_tab:
     with left:
         disabled = selected is None or selected.empty
         st.button('Delete Selection', use_container_width=True, disabled=disabled, on_click=mutate, args=[selected, DataFrameMutateMode.REMOVE]) # type: ignore
-        st.checkbox('Fit Columns to Screen', on_change=switch_size_mode)
+        st.checkbox('Fit Columns to Screen', value=column_size_mode == ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW, on_change=switch_size_mode)
 
     with center:
         st.button('Add New Row', use_container_width=True, on_click=mutate, args=[new_row, DataFrameMutateMode.PREPEND]) # type: ignore
 
     with right:
-        st.button('Clear Table', use_container_width=True, type='primary', on_click=load_empty)
+        st.button('Clear', use_container_width=True, type='primary', on_click=load_empty)
         st.button('Load Sample', use_container_width=True, type='primary', on_click=load_sample)
 
 with insights_tab:
@@ -249,7 +250,7 @@ with insights_tab:
                     store_income_names = np.unique(store_incomes['Description']).tolist()
                     didClear = [True if 'True' in store_incomes[store_incomes['Description'] == name]['Cleared'].values else False for name in store_income_names]
                     cleared_sum = 0
-                    for income_name, cleared in zip(store_income_names, didClear):
+                    for income_name, cleared in zip(store_income_names, didClear): # type: ignore
                         rLeft, rCenter = right.columns(2, gap='medium')
                         expenses = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income_name)]
                         data_auto = expenses[(expenses['Automatic'] == 'True') & (expenses['Cleared'] == 'False')] # issue combining filters
@@ -286,7 +287,7 @@ with insights_tab:
                     store_income_names = np.unique(store_incomes['Description']).tolist()
                     didClear = [True if 'True' in store_incomes[store_incomes['Description'] == name]['Cleared'].values else False for name in store_income_names]
                     cleared_sum = 0
-                    for income_name, cleared in zip(store_income_names, didClear):
+                    for income_name, cleared in zip(store_income_names, didClear): # type: ignore
                         rLeft, rCenter = right.columns(2, gap='medium')
                         expenses = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income_name)]
                         income_df = expenses[(expenses['Automatic'] == 'False') & (expenses['Paid'] == 'False') & (expenses['Cleared'] == 'False')]
@@ -336,7 +337,7 @@ with insights_tab:
                     source, target, value = 'source', 'target', 'value'
                     rows = []
                     income_data = stable[(stable['Category'] == 'Income')].loc[:, ['Description', 'Amount']]
-                    for description, amount in zip(income_data['Description'].tolist(), income_data['Amount'].tolist()):
+                    for description, amount in zip(income_data['Description'].tolist(), income_data['Amount'].tolist()): # type: ignore
                         rows.append({source: description, target: 'Total Income', value: amount})
                     expense_data = stable[(stable['Category'] != 'Income')].loc[:, ['Category', 'Amount']]
                     categories = np.unique(expense_data['Category']).tolist()
@@ -358,7 +359,7 @@ with insights_tab:
 
 with about_tab:
     st.markdown('Budgeteer documentation coming soon!')
-    st.markdown('Currently serving `v0.13.1`')
+    st.markdown('Currently serving `v0.13.2`')
 
 # Debugging
 # st.write("Session State", st.session_state)
