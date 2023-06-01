@@ -208,6 +208,7 @@ with data_tab:
         };
         """)
         grid_options['getRowStyle'] = row_coloring
+        grid_options['suppressHorizontalScroll'] = True
         modified_grid = AgGrid(stable, gridOptions=grid_options, columns_auto_size_mode=column_size_mode, enable_enterprise_modules=False, allow_unsafe_jscode=True)
         modified = modified_grid['data']
         stable = modified
