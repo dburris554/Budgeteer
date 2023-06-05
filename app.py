@@ -3,6 +3,7 @@ from pandas import DataFrame
 import pandas as pd
 from enum import Enum
 import plotly.graph_objects as go
+import altair as alt
 import numpy as np
 import friendlywords as fw
 from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, JsCode, AgGrid
@@ -243,7 +244,7 @@ with insights_tab:
     stable[stable['Cleared'] == 'false']['Cleared'] = 'False'
     with st.expander('**Pending Charges**'):
         if not stable.empty:
-            stores = np.unique((stable[(stable['Category'] == 'Income')]['Allocation'])).tolist()
+            stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
             for store in stores:
                 with st.container():
                     left, right = st.columns([1,2])
@@ -280,12 +281,12 @@ with insights_tab:
     st.markdown('')
     with st.expander('**Unpaid Charges**'):
         if not stable.empty:
-            stores = np.unique((stable[(stable['Category'] == 'Income')]['Allocation'])).tolist()
+            stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
             for store in stores:
                 with st.container():
                     left, right = st.columns([1,2])
-                    right.markdown('')
                     left.markdown(f'## {store}')
+                    right.markdown('')
                     store_incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
                     store_income_names = np.unique(store_incomes['Description']).tolist()
                     didClear = [True if 'True' in store_incomes[store_incomes['Description'] == name]['Cleared'].values else False for name in store_income_names]
@@ -313,13 +314,29 @@ with insights_tab:
                     st.markdown('---')
 
     st.markdown('')
+    with st.expander('**Income Burndowns**'):
+        if not stable.empty:
+            incomes = np.unique(stable[(stable['Category'] == 'Income')]['Description']).tolist()
+            for income in incomes:
+                with st.container():
+                    left, right = st.columns([2,1])
+                    left.markdown(f'## {income}')
+                    right.markdown('')
+                    chart_df = pd.DataFrame({'Day': [0, 1, 4, 11],
+                                            'Charges': ['', 'Rent', 'Electric', 'Car payment'],
+                                            'Balance': [1200, 500, 300, 200.25]}, columns=['Day', 'Charges', 'Balance'])
+                    left.altair_chart(alt.Chart(chart_df).mark_line(point=True).encode(x=alt.X('Charges', sort=alt.EncodingSortField(order=None)), y='Balance', order='Day'), use_container_width=True) # type: ignore
+                    right.metric(label='**Total remaining**', value=f'$200.25')
+
+
+    st.markdown('')
     with st.expander('**Data Exploration**'):
         left, _, right = st.columns([2,1,3])
         if not stable.empty:
             with left: # Bar graph of Income and Allocated Expenses
                 with st.container():
                     bar_data = {'Income': [], 'Expenses': []}
-                    stores = np.unique((stable[(stable['Category'] == 'Income')]['Allocation'])).tolist()
+                    stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
                     for store in stores:
                         store = str(store)
                         incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
