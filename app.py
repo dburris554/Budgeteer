@@ -325,7 +325,8 @@ with insights_tab:
                     chart_df = pd.DataFrame({'Day': [0, 1, 4, 11],
                                             'Charges': ['', 'Rent', 'Electric', 'Car payment'],
                                             'Balance': [1200, 500, 300, 200.25]}, columns=['Day', 'Charges', 'Balance'])
-                    left.altair_chart(alt.Chart(chart_df).mark_line(point=True).encode(x=alt.X('Charges', sort=alt.EncodingSortField(order=None)), y='Balance', order='Day'), use_container_width=True) # type: ignore
+                    left.altair_chart(alt.Chart(chart_df).mark_line(point=True, interpolate='step-after', strokeWidth=3, strokeCap='round').encode(x=alt.X('Charges', sort=alt.EncodingSortField(order=None)), y=alt.Y('Balance', scale=alt.Scale(padding=20, nice=100)), order='Day').interactive(), # type: ignore
+                                      use_container_width=True, theme=None)
                     right.metric(label='**Total remaining**', value=f'$200.25')
 
 
