@@ -54,7 +54,7 @@ if 'csv' not in st.session_state:
    st.session_state.csv = ''
 fw.preload() # type: ignore
 sample_values = dict(zip(SAMPLE_COLS, [0, fw.generate(3), fw.generate(1), 0.0, ' ', 'False', 'False', 'False'])) # type: ignore
-new_row = pd.DataFrame([[sample_values[col] if col in sample_values.keys() else ' ' for col in stable.columns]], columns=stable.columns)
+new_row = pd.DataFrame([[sample_values[col] if col in sample_values.keys() else ' ' for col in stable.columns]], columns=stable.columns) # type: ignore
 column_size_mode = ColumnsAutoSizeMode.FIT_CONTENTS
 if 'size_mode' in st.session_state:
     column_size_mode = st.session_state.size_mode
@@ -322,10 +322,10 @@ with insights_tab:
                     left, right = st.columns([2,1])
                     left.markdown(f'## {income}')
                     right.markdown('')
-                    chart_df = pd.DataFrame({'Day': [0, 1, 4, 11],
-                                            'Charges': ['', 'Rent', 'Electric', 'Car payment'],
+                    chart_df = pd.DataFrame({'Day': [1, 1, 4, 11],
+                                            'Charges': ['INCOME', 'Rent', 'Electric', 'Car payment'],
                                             'Balance': [1200, 500, 300, 200.25]}, columns=['Day', 'Charges', 'Balance'])
-                    left.altair_chart(alt.Chart(chart_df).mark_line(point=True, interpolate='step-after', strokeWidth=3, strokeCap='round').encode(x=alt.X('Charges', sort=alt.EncodingSortField(order=None)), y=alt.Y('Balance', scale=alt.Scale(padding=20, nice=100)), order='Day').interactive(), # type: ignore
+                    left.altair_chart(alt.Chart(chart_df).mark_line(point=True, interpolate='step-after', strokeWidth=3, strokeCap='round').encode(x='Day:O', y=alt.Y('Balance', scale=alt.Scale(padding=20, nice=100)), order='Day').interactive(), # type: ignore
                                       use_container_width=True, theme=None)
                     right.metric(label='**Total remaining**', value=f'$200.25')
 
