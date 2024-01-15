@@ -10,16 +10,6 @@ from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, JsCode, AgGrid
 
 # Layout changes
 st.set_page_config(page_title='Budgeteer', page_icon='🚀', layout="wide", initial_sidebar_state='expanded')
-hide_streamlit_style = '''
-<style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-.block-container {
-    padding-top: 1rem;
-}
-</style>
-'''
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 hide_anchors = '''
 <style>
 h2 > div > a {
