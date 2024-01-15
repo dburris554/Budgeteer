@@ -119,7 +119,7 @@ def switch_size_mode():
     st.session_state.dataframe = stable
 
 # Streamlit componenets
-st.header('Welcome fellow Budgeteer! :slightly_smiling_face:')
+st.header('Welcome fellow Budgeteer! :wave:')
 data_tab, insights_tab, about_tab = st.tabs(['Data', 'Insights', 'About'])
 
 with st.sidebar:
