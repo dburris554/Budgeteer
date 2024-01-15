@@ -18,9 +18,19 @@ footer {visibility: hidden;}
     padding-top: 1rem;
 }
 </style>
-
 '''
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+hide_anchors = '''
+<style>
+h2 > div > a {
+    display: none !important;
+}
+h3 > div > a {
+    display: none !important;
+}
+</style>
+'''
+st.markdown(hide_anchors, unsafe_allow_html=True)
 
 # Constants
 SAMPLE_COLS = ('Day', 'Description', 'Category', 'Amount', 'Allocation', 'Automatic', 'Paid', 'Cleared')
@@ -324,7 +334,7 @@ with insights_tab:
                     right.markdown('')
                     chart_df = pd.DataFrame({'Day': [1, 1, 4, 11],
                                             'Charges': ['INCOME', 'Rent', 'Electric', 'Car payment'],
-                                            'Balance': [1200, 500, 300, 200.25]}, columns=['Day', 'Charges', 'Balance'])
+                                            'Balance': [1200, 500, 300, 200.25]})
                     left.altair_chart(alt.Chart(chart_df).mark_line(point=True, interpolate='step-after', strokeWidth=3, strokeCap='round').encode(x='Day:O', y=alt.Y('Balance', scale=alt.Scale(padding=20, nice=100)), order='Day').interactive(), # type: ignore
                                       use_container_width=True, theme=None)
                     right.metric(label='**Total remaining**', value=f'$200.25')
