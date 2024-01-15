@@ -13,7 +13,6 @@ st.set_page_config(page_title='Budgeteer', page_icon='🚀', layout="wide", init
 hide_streamlit_style = '''
 <style>
 #MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
 .block-container {
     padding-top: 1rem;
 }
