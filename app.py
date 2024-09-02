@@ -331,9 +331,19 @@ with insights_tab:
                     left, right = st.columns([2,1])
                     left.markdown(f'## {income}')
                     right.markdown('')
-                    chart_df = pd.DataFrame({'Day': [1, 1, 4, 11],
-                                            'Charges': ['INCOME', 'Rent', 'Electric', 'Car payment'],
-                                            'Balance': [1200, 500, 300, 200.25]})
+                    expense_names = np.unique(stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income)]['Description']).tolist()
+                    income_entry = stable[(stable['Category'] == 'Income') & (stable['Description'] == income)]
+                    day = [income_entry['Day']]
+                    balance = [income_entry['Amount']]
+                    curr_balance = income_entry['Amount']
+                    # for name in expense_names:
+                    #     expense_entry = stable[(stable['Allocation'] == income) & (stable['Description'] == name)]
+                    #     if expense_entry['Day'] != '' & expense_entry['Amount'] != '':
+                    #         day += [expense_entry['Day']]
+                    #         curr_balance -= int(expense_entry['Amount'])
+                    #         balance += [curr_balance]
+                    chart_df = pd.DataFrame({'Day': day,
+                                            'Balance': balance})
                     left.altair_chart(alt.Chart(chart_df).mark_line(point=True, interpolate='step-after', strokeWidth=3, strokeCap='round').encode(x='Day:O', y=alt.Y('Balance', scale=alt.Scale(padding=20, nice=100)), order='Day').interactive(), # type: ignore
                                       use_container_width=True, theme=None)
                     right.metric(label='**Total remaining**', value=f'$200.25')
