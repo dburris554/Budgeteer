@@ -127,6 +127,71 @@ def switch_size_mode():
     st.session_state.size_mode = column_size_mode
     st.session_state.dataframe = stable
 
+def cb_renderer():
+    return JsCode("""
+        class CBRenderer {
+            init(params) {
+                this.params = params;
+                this.eGui = document.createElement('input');
+                this.eGui.type = 'checkbox';
+                this.eGui.checked = params.value == 'True' || params.value == true;
+                this.checkedHandler = this.checkedHandler.bind(this);
+                this.eGui.addEventListener('click', this.checkedHandler);
+            }
+
+            checkedHandler(e) {
+                let checked = e.target.checked;
+                let colId = this.params.column.colId;
+                this.params.node.setDataValue(colId, checked);
+            }
+
+            getGui() {
+                return this.eGui;
+            }
+
+            destroy() {
+                this.eGui.removeEventListener('click', this.checkedHandler);
+            }
+        }
+        """)
+
+def income_checker():
+    return JsCode("""
+        class IncomeChecker {
+            init(params) {
+                this.eGui = document.createElement('span');
+                this.eGui.innerHTML = this.getInnerHtml(params.value);
+            }
+
+            getGui(params) {
+                return this.eGui;
+            }
+
+            refresh(params) {
+                this.eGui.innerHTML = this.getInnerHtml(params.value);
+                return true;
+            }
+
+            getInnerHtml(value) {
+                if (value == 'Income') {
+                    return `<span style="background-color:palegreen">${value}</span>`;
+                }
+                return `<span>${value}</span>`;
+            }
+        }
+        """)
+
+def row_coloring():
+    return JsCode("""
+        function(params) {
+            if (params.rowIndex % 2 == 1) {
+                return {
+                    'backgroundColor': 'whitesmoke'
+                }
+            }
+        };
+        """)
+
 # Streamlit componenets
 st.header('Welcome fellow Budgeteer! :wave:', anchor=False)
 data_tab, insights_tab, about_tab = st.tabs(['Data', 'Insights', 'About'])
@@ -156,70 +221,11 @@ with data_tab:
         gb.configure_pagination(paginationAutoPageSize=False)
         gb.configure_default_column(editable=True)
         gb.configure_column(field='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
-        cb_renderer = JsCode("""
-        class CBRenderer {
-            init(params) {
-                this.params = params;
-                this.eGui = document.createElement('input');
-                this.eGui.type = 'checkbox';
-                this.eGui.checked = params.value == 'True' || params.value == true;
-                this.checkedHandler = this.checkedHandler.bind(this);
-                this.eGui.addEventListener('click', this.checkedHandler);
-            }
-
-            checkedHandler(e) {
-                let checked = e.target.checked;
-                let colId = this.params.column.colId;
-                this.params.node.setDataValue(colId, checked);
-            }
-
-            getGui() {
-                return this.eGui;
-            }
-
-            destroy() {
-                this.eGui.removeEventListener('click', this.checkedHandler);
-            }
-        }
-        """)
-        gb.configure_columns(column_names=['Automatic', 'Paid', 'Cleared'], cellRenderer=cb_renderer)
-        income_checker = JsCode("""
-        class IncomeChecker {
-            init(params) {
-                this.eGui = document.createElement('span');
-                this.eGui.innerHTML = this.getInnerHtml(params.value);
-            }
-
-            getGui(params) {
-                return this.eGui;
-            }
-
-            refresh(params) {
-                this.eGui.innerHTML = this.getInnerHtml(params.value);
-                return true;
-            }
-
-            getInnerHtml(value) {
-                if (value == 'Income') {
-                    return `<span style="background-color:palegreen">${value}</span>`;
-                }
-                return `<span>${value}</span>`;
-            }
-        }
-        """)
-        gb.configure_column(field='Category', cellRenderer=income_checker)
+        gb.configure_columns(column_names=['Automatic', 'Paid', 'Cleared'], cellRenderer=cb_renderer())
+        gb.configure_column(field='Category', cellRenderer=income_checker())
         gb.configure_selection(selection_mode='multiple', use_checkbox=True, suppressRowDeselection=True, suppressRowClickSelection=True)
         grid_options = gb.build()
-        row_coloring = JsCode("""
-        function(params) {
-            if (params.rowIndex % 2 == 1) {
-                return {
-                    'backgroundColor': 'whitesmoke'
-                }
-            }
-        };
-        """)
-        grid_options['getRowStyle'] = row_coloring
+        grid_options['getRowStyle'] = row_coloring()
         grid_options['suppressHorizontalScroll'] = True
         modified_grid = AgGrid(stable, gridOptions=grid_options, columns_auto_size_mode=column_size_mode, enable_enterprise_modules=False, allow_unsafe_jscode=True, theme=AgGridTheme.ALPINE) # type: ignore
         modified = modified_grid['data']
