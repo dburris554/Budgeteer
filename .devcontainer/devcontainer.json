@@ -16,7 +16,9 @@
 	// "forwardPorts": [],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "pip3 install pipenv && pipenv update streamlit && pipenv install && pipenv install --system"
+	"postCreateCommand": "pip3 install pipenv && pipenv install && pipenv install --system"
+	// The below command will also update streamlit to latest
+	// "pip3 install pipenv && pipenv update streamlit && pipenv install && pipenv install --system"
 
 	// Configure tool-specific properties.
 	// "customizations": {},
