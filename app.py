@@ -24,10 +24,10 @@ hide_streamlit_menu = '''
 st.markdown(hide_streamlit_menu, unsafe_allow_html=True)
 hide_anchors = '''
 <style>
-h2 > div > a {
+h2 > span > a {
     display: none !important;
 }
-h3 > div > a {
+h3 > span > a {
     display: none !important;
 }
 </style>
