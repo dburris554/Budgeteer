@@ -382,7 +382,8 @@ with insights_tab:
                         sankey = go.Sankey(node={'label': nodes.index},
                             link={'source': nodes.loc[sankey_df['source']],
                                 'target': nodes.loc[sankey_df['target']],
-                                'value': sankey_df['value']})
+                                'value': sankey_df['value']},
+                            textfont={'size': 14, 'color': 'black'})
                         fig = go.Figure(data=sankey)
                         fig.update_layout(margin=dict(l=0, r=0, t=5, b=30), font_size=14)
                         st.plotly_chart(fig, use_container_width=True, theme=None)
