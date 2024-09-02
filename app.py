@@ -128,7 +128,7 @@ def switch_size_mode():
     st.session_state.dataframe = stable
 
 # Streamlit componenets
-st.header('Welcome fellow Budgeteer! :wave:')
+st.header('Welcome fellow Budgeteer! :wave:', anchor=False)
 data_tab, insights_tab, about_tab = st.tabs(['Data', 'Insights', 'About'])
 
 with st.sidebar:
@@ -269,7 +269,7 @@ with insights_tab:
                         data_auto = expenses[(expenses['Automatic'] == 'True') & (expenses['Cleared'] == 'False')] # issue combining filters
                         data_paid = expenses[(expenses['Paid'] == 'True') & (expenses['Cleared'] == 'False')]
                         income_df = pd.concat([data_auto, data_paid])
-                        income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_index()
+                        income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_values('Day')
                         sum = income_df['Amount'].sum()
                         income_df['Amount'] = income_df['Amount'].apply(lambda x: f'${x:,.2f}')
                         rLeft.markdown(f'### {income_name}')
@@ -304,7 +304,7 @@ with insights_tab:
                         rLeft, rCenter = right.columns(2, gap='medium')
                         expenses = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income_name)]
                         income_df = expenses[(expenses['Automatic'] == 'False') & (expenses['Paid'] == 'False') & (expenses['Cleared'] == 'False')]
-                        income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_index()
+                        income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_values('Day')
                         sum = income_df['Amount'].sum()
                         income_df['Amount'] = income_df['Amount'].apply(lambda x: f'${x:,.2f}')
                         rLeft.markdown(f'### {income_name}')
@@ -331,22 +331,24 @@ with insights_tab:
                     left, right = st.columns([2,1])
                     left.markdown(f'## {income}')
                     right.markdown('')
-                    expense_names = np.unique(stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income)]['Description']).tolist()
+                    expense_df = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income)].sort_values('Day')
+                    expense_names = expense_df.loc[:, ['Description']]['Description'].tolist()
+                    expense_amounts = expense_df.loc[:, ['Amount']]['Amount'].tolist()
                     income_entry = stable[(stable['Category'] == 'Income') & (stable['Description'] == income)]
-                    day = [income_entry['Day']]
-                    balance = [income_entry['Amount']]
-                    curr_balance = income_entry['Amount']
-                    # for name in expense_names:
-                    #     expense_entry = stable[(stable['Allocation'] == income) & (stable['Description'] == name)]
-                    #     if expense_entry['Day'] != '' & expense_entry['Amount'] != '':
-                    #         day += [expense_entry['Day']]
-                    #         curr_balance -= int(expense_entry['Amount'])
-                    #         balance += [curr_balance]
+                    day = [int(income_entry.iloc[0]['Day'])]
+                    balance = [float(income_entry.iloc[0]["Amount"])]
+                    curr_balance = balance[0]
+                    for name, amount in zip(expense_names, expense_amounts):
+                        expense_entry = stable[(stable['Allocation'] == income) & (stable['Description'] == name) & (stable['Amount'] == amount)]
+                        if expense_entry.iloc[0]['Day'] != '' and expense_entry.iloc[0]['Amount'] != '':
+                            day += [int(expense_entry.iloc[0]['Day'])]
+                            curr_balance -= float(expense_entry.iloc[0]['Amount'])
+                            balance += [curr_balance]
                     chart_df = pd.DataFrame({'Day': day,
                                             'Balance': balance})
                     left.altair_chart(alt.Chart(chart_df).mark_line(point=True, interpolate='step-after', strokeWidth=3, strokeCap='round').encode(x='Day:O', y=alt.Y('Balance', scale=alt.Scale(padding=20, nice=100)), order='Day').interactive(), # type: ignore
                                       use_container_width=True, theme=None)
-                    right.metric(label='**Total remaining**', value=f'$200.25')
+                    right.metric(label='**Total remaining**', value=f'${curr_balance:,.2f}')
 
 
     st.markdown('')
