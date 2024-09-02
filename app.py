@@ -254,8 +254,8 @@ with insights_tab:
     with st.expander('**Pending Charges**'):
         if not stable.empty:
             stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
-            for store in stores:
-                with st.container():
+            with st.container(height=500):
+                for store in stores:
                     left, right = st.columns([1,2])
                     right.markdown('')
                     left.markdown(f'## {store}')
@@ -284,15 +284,15 @@ with insights_tab:
                             right.markdown('---')
                             right.markdown('')
                     left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
-                if store != stores[len(stores)-1]:
-                    st.markdown('---')
+                    if store != stores[len(stores)-1]:
+                        st.markdown('---')
 
     st.markdown('')
     with st.expander('**Unpaid Charges**'):
         if not stable.empty:
             stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
-            for store in stores:
-                with st.container():
+            with st.container(height=500):
+                for store in stores:
                     left, right = st.columns([1,2])
                     left.markdown(f'## {store}')
                     right.markdown('')
@@ -319,15 +319,15 @@ with insights_tab:
                             right.markdown('---')
                             right.markdown('')
                     left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
-                if store != stores[len(stores)-1]:
-                    st.markdown('---')
+                    if store != stores[len(stores)-1]:
+                        st.markdown('---')
 
     st.markdown('')
     with st.expander('**Income Burndowns**'):
         if not stable.empty:
             incomes = np.unique(stable[(stable['Category'] == 'Income')]['Description']).tolist()
-            for income in incomes:
-                with st.container():
+            with st.container(height=500):
+                for income in incomes:
                     left, right = st.columns([2,1])
                     left.markdown(f'## {income}')
                     right.markdown('')
@@ -385,7 +385,7 @@ with insights_tab:
                                 'value': sankey_df['value']},
                             textfont={'size': 14, 'color': 'black'})
                         fig = go.Figure(data=sankey)
-                        fig.update_layout(margin=dict(l=0, r=0, t=5, b=30), font_size=14)
+                        fig.update_layout(margin=dict(l=0, r=0, t=5, b=30))
                         st.plotly_chart(fig, use_container_width=True, theme=None)
 
 with about_tab:
