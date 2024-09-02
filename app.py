@@ -408,7 +408,7 @@ with insights_tab:
 
 with about_tab:
     st.markdown('Budgeteer documentation coming soon!')
-    st.markdown('Currently serving `v0.13.5`')
+    st.markdown('Currently serving `v0.14.0`')
 
 # Debugging
 # st.write("Session State", st.session_state)
