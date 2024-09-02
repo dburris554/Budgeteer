@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import altair as alt
 import numpy as np
 import friendlywords as fw
-from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, JsCode, AgGrid
+from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGridTheme, JsCode, AgGrid
 
 # Layout changes
 st.set_page_config(page_title='Budgeteer', page_icon='🚀', layout="wide", initial_sidebar_state='expanded')
@@ -221,7 +221,7 @@ with data_tab:
         """)
         grid_options['getRowStyle'] = row_coloring
         grid_options['suppressHorizontalScroll'] = True
-        modified_grid = AgGrid(stable, gridOptions=grid_options, columns_auto_size_mode=column_size_mode, enable_enterprise_modules=False, allow_unsafe_jscode=True)
+        modified_grid = AgGrid(stable, gridOptions=grid_options, columns_auto_size_mode=column_size_mode, enable_enterprise_modules=False, allow_unsafe_jscode=True, theme=AgGridTheme.ALPINE) # type: ignore
         modified = modified_grid['data']
         stable = modified
         selected = pd.DataFrame(modified_grid['selected_rows'])
