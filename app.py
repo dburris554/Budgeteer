@@ -10,15 +10,18 @@ from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGridTheme, JsCo
 
 # Layout changes
 st.set_page_config(page_title='Budgeteer', page_icon='🚀', layout="wide", initial_sidebar_state='expanded')
-# hide_streamlit_style = '''
-# <style>
-# #MainMenu {visibility: hidden;}
-# .block-container {
-#     padding-top: 1rem;
-# }
-# </style>
-# '''
-# st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+hide_streamlit_menu = '''
+<style>
+#MainMenu {visibility: hidden;}
+.block-container {
+    padding-top: 1rem;
+}
+[data-testid="stDecoration"] {
+    display: none;
+}
+</style>
+'''
+st.markdown(hide_streamlit_menu, unsafe_allow_html=True)
 hide_anchors = '''
 <style>
 h2 > div > a {
