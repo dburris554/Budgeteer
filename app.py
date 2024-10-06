@@ -366,7 +366,7 @@ with insights_tab:
         if not stable.empty:
             with left: # Bar graph of Income and Allocated Expenses
                 with st.container():
-                    bar_data = {'Income': [], 'Expenses': []}
+                    bar_data = {}
                     stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
                     for store in stores:
                         store = str(store)
@@ -377,11 +377,11 @@ with insights_tab:
                         for name in income_names:
                             name = str(name)
                             total_expenses = total_expenses + stable[(stable['Category'] != 'Income') & (stable['Allocation'] == name)]['Amount'].sum()
-                        bar_data['Income'] += [total_income]
-                        bar_data['Expenses'] += [total_expenses]
-                    if len(bar_data['Income']) > 0:
+                        bar_data[store] = [total_income, total_expenses]
+                    bar_data["Category"] = [" Income", "Expenses"] # added space character to adjust sort
+                    if len(bar_data.items()) > 0:
                         st.markdown('### Income Allocation')
-                        st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=stores), height=480)
+                        st.bar_chart(pd.DataFrame.from_dict(bar_data).set_index(['Category']), height=480)
 
             with right: # Sankey Chart of Income to Total Income to Expense Categories
                 with st.container():
