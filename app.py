@@ -196,7 +196,7 @@ def row_coloring():
         """)
 
 # Streamlit componenets
-st.header('Welcome fellow Budgeteer! :wave:', anchor=False)
+st.header('Welcome, fellow Budgeteer! :wave:', anchor=False)
 data_tab, insights_tab, about_tab = st.tabs(['Data', 'Insights', 'About'])
 
 with st.sidebar:
