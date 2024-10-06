@@ -220,9 +220,11 @@ with data_tab:
     if stable.empty:
         st.dataframe(pd.DataFrame(columns=SAMPLE_COLS))
     else:
+        stable['Day'] = stable['Day'].astype(int)
         gb = GridOptionsBuilder.from_dataframe(stable)
         gb.configure_pagination(paginationAutoPageSize=False)
         gb.configure_default_column(editable=True)
+        gb.configure_column(field='Day', type=['numericColumn', 'numberColumnFilter'])
         gb.configure_column(field='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
         gb.configure_columns(column_names=['Automatic', 'Paid', 'Cleared'], cellRenderer=cb_renderer())
         gb.configure_column(field='Category', cellRenderer=income_checker())
@@ -340,7 +342,7 @@ with insights_tab:
                     left, right = st.columns([2,1])
                     left.markdown(f'## {income}')
                     right.markdown('')
-                    expense_df = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income)].sort_values('Day')
+                    expense_df = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income)].set_index('Day').sort_values('Day')
                     expense_names = expense_df.loc[:, ['Description']]['Description'].tolist()
                     expense_amounts = expense_df.loc[:, ['Amount']]['Amount'].tolist()
                     income_entry = stable[(stable['Category'] == 'Income') & (stable['Description'] == income)]
