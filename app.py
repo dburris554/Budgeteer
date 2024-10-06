@@ -209,7 +209,7 @@ with st.sidebar:
         if add:
             st.success('Rows added!', icon='✅')
 
-    st.markdown('---')
+    st.divider()
     name = st.text_input('Download File Name', value=default_file_name)
     ready = st.button('Create Download File!', use_container_width=True, on_click=convert_to_csv)
     if ready:
@@ -296,7 +296,7 @@ with insights_tab:
                             right.markdown('')
                     left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
                     if store != stores[len(stores)-1]:
-                        st.markdown('---')
+                        st.divider()
 
     st.markdown('')
     with st.expander('**Unpaid Charges**'):
@@ -331,7 +331,7 @@ with insights_tab:
                             right.markdown('')
                     left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
                     if store != stores[len(stores)-1]:
-                        st.markdown('---')
+                        st.divider()
 
     st.markdown('')
     with st.expander('**Income Burndowns**'):
