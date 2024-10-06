@@ -346,15 +346,30 @@ with insights_tab:
                     expense_names = expense_df.loc[:, ['Description']]['Description'].tolist()
                     expense_amounts = expense_df.loc[:, ['Amount']]['Amount'].tolist()
                     income_entry = stable[(stable['Category'] == 'Income') & (stable['Description'] == income)]
-                    day = [int(income_entry.iloc[0]['Day'])]
-                    balance = [float(income_entry.iloc[0]["Amount"])]
-                    curr_balance = balance[0]
+                    day = []
+                    balance = []
+                    for i in range(int(income_entry.iloc[0]['Day'])):
+                        day += [i]
+                        balance += [0]
+                    day += [int(income_entry.iloc[0]['Day'])]
+                    balance += [float(income_entry.iloc[0]["Amount"])]
+                    curr_day = day[-1]
+                    curr_balance = balance[-1]
                     for name, amount in zip(expense_names, expense_amounts):
                         expense_entry = stable[(stable['Allocation'] == income) & (stable['Description'] == name) & (stable['Amount'] == amount)]
                         if expense_entry.iloc[0]['Day'] != '' and expense_entry.iloc[0]['Amount'] != '':
-                            day += [int(expense_entry.iloc[0]['Day'])]
+                            other_day = int(expense_entry.iloc[0]['Day'])
+                            diff = other_day - curr_day
+                            for i in range(diff):
+                                day += [curr_day + i + 1]
+                                balance += [curr_balance]
+                            day += [other_day]
+                            curr_day = day[-1]
                             curr_balance -= float(expense_entry.iloc[0]['Amount'])
                             balance += [curr_balance]
+                    for i in range(31 - curr_day):
+                        day += [curr_day + i + 1]
+                        balance += [curr_balance]
                     chart_df = pd.DataFrame({'Day': day,
                                             'Balance': balance})
                     left.altair_chart(alt.Chart(chart_df).mark_line(point=True, interpolate='step-after', strokeWidth=3, strokeCap='round').encode(x='Day:O', y=alt.Y('Balance', scale=alt.Scale(padding=20, nice=100)), order='Day').interactive(), # type: ignore
