@@ -3,23 +3,37 @@ from pandas import DataFrame
 import pandas as pd
 from enum import Enum
 import plotly.graph_objects as go
+import altair as alt
 import numpy as np
 import friendlywords as fw
-from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, JsCode, AgGrid
+from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGridTheme, JsCode, AgGrid
+from streamlit.components.v1 import html
 
 # Layout changes
 st.set_page_config(page_title='Budgeteer', page_icon='🚀', layout="wide", initial_sidebar_state='expanded')
-hide_streamlit_style = '''
+hide_streamlit_menu = '''
 <style>
 #MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
 .block-container {
     padding-top: 1rem;
 }
+[data-testid="stDecoration"] {
+    display: none;
+}
 </style>
-
 '''
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+st.markdown(hide_streamlit_menu, unsafe_allow_html=True)
+hide_anchors = '''
+<style>
+h2 > span > a {
+    display: none !important;
+}
+h3 > span > a {
+    display: none !important;
+}
+</style>
+'''
+st.markdown(hide_anchors, unsafe_allow_html=True)
 
 # Constants
 SAMPLE_COLS = ('Day', 'Description', 'Category', 'Amount', 'Allocation', 'Automatic', 'Paid', 'Cleared')
@@ -31,6 +45,7 @@ SAMPLE_ROWS = [(1, 'Paycheck 1', 'Income', 2000.59, 'ABC Bank', 'True', 'False',
           (14, 'Car payment', 'Loans', 300, 'Paycheck 1', 'True', 'False', 'False'),
           (15, 'Walmart', 'Groceries', 150, 'Paycheck 2', 'False', 'False', 'False')]
 SAMPLE = pd.DataFrame([dict(zip(SAMPLE_COLS, SAMPLE_ROWS[i])) for i in range(len(SAMPLE_ROWS))])
+HEIGHT = 500
 
 class DataFrameMutateMode(Enum):
     APPEND = 1
@@ -53,7 +68,7 @@ if 'csv' not in st.session_state:
    st.session_state.csv = ''
 fw.preload() # type: ignore
 sample_values = dict(zip(SAMPLE_COLS, [0, fw.generate(3), fw.generate(1), 0.0, ' ', 'False', 'False', 'False'])) # type: ignore
-new_row = pd.DataFrame([[sample_values[col] if col in sample_values.keys() else ' ' for col in stable.columns]], columns=stable.columns)
+new_row = pd.DataFrame([[sample_values[col] if col in sample_values.keys() else ' ' for col in stable.columns]], columns=stable.columns) # type: ignore
 column_size_mode = ColumnsAutoSizeMode.FIT_CONTENTS
 if 'size_mode' in st.session_state:
     column_size_mode = st.session_state.size_mode
@@ -117,36 +132,8 @@ def switch_size_mode():
     st.session_state.size_mode = column_size_mode
     st.session_state.dataframe = stable
 
-# Streamlit componenets
-st.header('Welcome fellow Budgeteer! :slightly_smiling_face:')
-data_tab, insights_tab, about_tab = st.tabs(['Data', 'Insights', 'About'])
-
-with st.sidebar:
-    default_file_name = 'budget'
-    upload = st.file_uploader('Upload budget CSV', 'csv')
-    if upload is not None:
-        default_file_name = upload.name[:upload.name.find('.')]
-        dataframe = pd.read_csv(upload)
-        add = st.button('Add rows', use_container_width=True, on_click=mutate, args=[dataframe, DataFrameMutateMode.APPEND]) # type: ignore
-        if add:
-            st.success('Rows added!', icon='✅')
-
-    st.markdown('---')
-    name = st.text_input('Download File Name', value=default_file_name)
-    ready = st.button('Create Download File!', use_container_width=True, on_click=convert_to_csv)
-    if ready:
-        file_name = name + '.csv'
-        st.download_button(label=f'Download "{file_name}"', use_container_width=True, data=st.session_state.csv, file_name=file_name, mime='text/csv')
-
-with data_tab:
-    if stable.empty:
-        st.dataframe(pd.DataFrame(columns=SAMPLE_COLS))
-    else:
-        gb = GridOptionsBuilder.from_dataframe(stable)
-        gb.configure_pagination(paginationAutoPageSize=False)
-        gb.configure_default_column(editable=True)
-        gb.configure_column(field='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
-        cb_renderer = JsCode("""
+def cb_renderer():
+    return JsCode("""
         class CBRenderer {
             init(params) {
                 this.params = params;
@@ -172,8 +159,9 @@ with data_tab:
             }
         }
         """)
-        gb.configure_columns(column_names=['Automatic', 'Paid', 'Cleared'], cellRenderer=cb_renderer)
-        income_checker = JsCode("""
+
+def income_checker():
+    return JsCode("""
         class IncomeChecker {
             init(params) {
                 this.eGui = document.createElement('span');
@@ -197,10 +185,9 @@ with data_tab:
             }
         }
         """)
-        gb.configure_column(field='Category', cellRenderer=income_checker)
-        gb.configure_selection(selection_mode='multiple', use_checkbox=True, suppressRowDeselection=True, suppressRowClickSelection=True)
-        grid_options = gb.build()
-        row_coloring = JsCode("""
+
+def row_coloring():
+    return JsCode("""
         function(params) {
             if (params.rowIndex % 2 == 1) {
                 return {
@@ -209,9 +196,45 @@ with data_tab:
             }
         };
         """)
-        grid_options['getRowStyle'] = row_coloring
+
+# Streamlit componenets
+st.header('Welcome, fellow Budgeteer! :wave:', anchor=False)
+data_tab, insights_tab, about_tab, donate_tab = st.tabs(['Data', 'Insights', 'About', 'Donate'])
+
+with st.sidebar:
+    default_file_name = 'budget'
+    upload = st.file_uploader('Upload budget CSV', 'csv')
+    if upload is not None:
+        default_file_name = upload.name[:upload.name.find('.')]
+        dataframe = pd.read_csv(upload)
+        add = st.button('Add rows', use_container_width=True, on_click=mutate, args=[dataframe, DataFrameMutateMode.APPEND]) # type: ignore
+        if add:
+            st.success('Rows added!', icon='✅')
+
+    st.divider()
+    name = st.text_input('Download File Name', value=default_file_name)
+    ready = st.button('Create Download File!', use_container_width=True, on_click=convert_to_csv)
+    if ready:
+        file_name = name + '.csv'
+        st.download_button(label=f'Download "{file_name}"', use_container_width=True, data=st.session_state.csv, file_name=file_name, mime='text/csv')
+
+with data_tab:
+    if stable.empty:
+        st.dataframe(pd.DataFrame(columns=SAMPLE_COLS))
+    else:
+        stable['Day'] = stable['Day'].astype(int)
+        gb = GridOptionsBuilder.from_dataframe(stable)
+        gb.configure_pagination(paginationAutoPageSize=False)
+        gb.configure_default_column(editable=True)
+        gb.configure_column(field='Day', type=['numericColumn', 'numberColumnFilter'])
+        gb.configure_column(field='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
+        gb.configure_columns(column_names=['Automatic', 'Paid', 'Cleared'], cellRenderer=cb_renderer())
+        gb.configure_column(field='Category', cellRenderer=income_checker())
+        gb.configure_selection(selection_mode='multiple', use_checkbox=True, suppressRowDeselection=True, suppressRowClickSelection=True)
+        grid_options = gb.build()
+        grid_options['getRowStyle'] = row_coloring()
         grid_options['suppressHorizontalScroll'] = True
-        modified_grid = AgGrid(stable, gridOptions=grid_options, columns_auto_size_mode=column_size_mode, enable_enterprise_modules=False, allow_unsafe_jscode=True)
+        modified_grid = AgGrid(stable, gridOptions=grid_options, columns_auto_size_mode=column_size_mode, enable_enterprise_modules=False, allow_unsafe_jscode=True, theme=AgGridTheme.ALPINE) # type: ignore
         modified = modified_grid['data']
         stable = modified
         selected = pd.DataFrame(modified_grid['selected_rows'])
@@ -219,7 +242,7 @@ with data_tab:
             selected['Day'] = selected['Day'].astype(int)
             selected['Amount'] = selected['Amount'].astype(float)
             selected = selected.drop('_selectedRowNodeInfo', axis=1)
-    left, center, _, right = st.columns([1,1,2,1], gap="medium")
+    left, center, _, right = st.columns([1, 1, 2, 1], gap="medium")
 
     with left:
         disabled = selected is None or selected.empty
@@ -243,10 +266,10 @@ with insights_tab:
     stable[stable['Cleared'] == 'false']['Cleared'] = 'False'
     with st.expander('**Pending Charges**'):
         if not stable.empty:
-            stores = np.unique((stable[(stable['Category'] == 'Income')]['Allocation'])).tolist()
-            for store in stores:
-                with st.container():
-                    left, right = st.columns([1,2])
+            stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
+            with st.container(height=HEIGHT):
+                for store in stores:
+                    left, right = st.columns([1, 2])
                     right.markdown('')
                     left.markdown(f'## {store}')
                     store_incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
@@ -259,7 +282,7 @@ with insights_tab:
                         data_auto = expenses[(expenses['Automatic'] == 'True') & (expenses['Cleared'] == 'False')] # issue combining filters
                         data_paid = expenses[(expenses['Paid'] == 'True') & (expenses['Cleared'] == 'False')]
                         income_df = pd.concat([data_auto, data_paid])
-                        income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_index()
+                        income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_values('Day')
                         sum = income_df['Amount'].sum()
                         income_df['Amount'] = income_df['Amount'].apply(lambda x: f'${x:,.2f}')
                         rLeft.markdown(f'### {income_name}')
@@ -271,21 +294,21 @@ with insights_tab:
                         right.metric(label='**Sum of Pending**', value=f'${sum:,.2f}')
                         right.dataframe(income_df, use_container_width=True)
                         if income_name != store_income_names[len(store_income_names)-1]:
-                            right.markdown('---')
+                            right.divider()
                             right.markdown('')
                     left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
-                if store != stores[len(stores)-1]:
-                    st.markdown('---')
+                    if store != stores[len(stores)-1]:
+                        st.divider()
 
     st.markdown('')
     with st.expander('**Unpaid Charges**'):
         if not stable.empty:
-            stores = np.unique((stable[(stable['Category'] == 'Income')]['Allocation'])).tolist()
-            for store in stores:
-                with st.container():
-                    left, right = st.columns([1,2])
-                    right.markdown('')
+            stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
+            with st.container(height=HEIGHT):
+                for store in stores:
+                    left, right = st.columns([1, 2])
                     left.markdown(f'## {store}')
+                    right.markdown('')
                     store_incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
                     store_income_names = np.unique(store_incomes['Description']).tolist()
                     didClear = [True if 'True' in store_incomes[store_incomes['Description'] == name]['Cleared'].values else False for name in store_income_names]
@@ -294,7 +317,7 @@ with insights_tab:
                         rLeft, rCenter = right.columns(2, gap='medium')
                         expenses = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income_name)]
                         income_df = expenses[(expenses['Automatic'] == 'False') & (expenses['Paid'] == 'False') & (expenses['Cleared'] == 'False')]
-                        income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_index()
+                        income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_values('Day')
                         sum = income_df['Amount'].sum()
                         income_df['Amount'] = income_df['Amount'].apply(lambda x: f'${x:,.2f}')
                         rLeft.markdown(f'### {income_name}')
@@ -306,20 +329,62 @@ with insights_tab:
                         right.metric(label='**Sum of Unpaid**', value=f'${sum:,.2f}')
                         right.dataframe(income_df, use_container_width=True)
                         if income_name != store_income_names[len(store_income_names)-1]:
-                            right.markdown('---')
+                            right.divider()
                             right.markdown('')
                     left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
-                if store != stores[len(stores)-1]:
-                    st.markdown('---')
+                    if store != stores[len(stores)-1]:
+                        st.divider()
+
+    st.markdown('')
+    with st.expander('**Income Burndowns**'):
+        if not stable.empty:
+            incomes = np.unique(stable[(stable['Category'] == 'Income')]['Description']).tolist()
+            with st.container(height=HEIGHT):
+                for income in incomes:
+                    left, right = st.columns([2, 1])
+                    left.markdown(f'## {income}')
+                    right.markdown('')
+                    expense_df = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income)].set_index('Day').sort_values('Day')
+                    expense_names = expense_df.loc[:, ['Description']]['Description'].tolist()
+                    expense_amounts = expense_df.loc[:, ['Amount']]['Amount'].tolist()
+                    income_entry = stable[(stable['Category'] == 'Income') & (stable['Description'] == income)]
+                    day = []
+                    balance = []
+                    for i in range(int(income_entry.iloc[0]['Day'])):
+                        day += [i]
+                        balance += [0]
+                    day += [int(income_entry.iloc[0]['Day'])]
+                    balance += [float(income_entry.iloc[0]["Amount"])]
+                    curr_day = day[-1]
+                    curr_balance = balance[-1]
+                    for name, amount in zip(expense_names, expense_amounts):
+                        expense_entry = stable[(stable['Allocation'] == income) & (stable['Description'] == name) & (stable['Amount'] == amount)]
+                        if expense_entry.iloc[0]['Day'] != '' and expense_entry.iloc[0]['Amount'] != '':
+                            other_day = int(expense_entry.iloc[0]['Day'])
+                            diff = other_day - curr_day
+                            for i in range(diff):
+                                day += [curr_day + i + 1]
+                                balance += [curr_balance]
+                            day += [other_day]
+                            curr_day = day[-1]
+                            curr_balance -= float(expense_entry.iloc[0]['Amount'])
+                            balance += [curr_balance]
+                    for i in range(31 - curr_day):
+                        day += [curr_day + i + 1]
+                        balance += [curr_balance]
+                    chart_df = pd.DataFrame({'Day': day, 'Balance': balance})
+                    left.altair_chart(alt.Chart(chart_df).mark_line(point=True, interpolate='step-after', strokeWidth=3, strokeCap='round').encode(x='Day:O', y=alt.Y('Balance', scale=alt.Scale(padding=20, nice=100)), order='Day').interactive(), # type: ignore
+                                      use_container_width=True, theme=None)
+                    right.metric(label='**Total remaining**', value=f'${curr_balance:,.2f}')
 
     st.markdown('')
     with st.expander('**Data Exploration**'):
-        left, _, right = st.columns([2,1,3])
+        left, _, right = st.columns([2, 1, 3])
         if not stable.empty:
             with left: # Bar graph of Income and Allocated Expenses
                 with st.container():
-                    bar_data = {'Income': [], 'Expenses': []}
-                    stores = np.unique((stable[(stable['Category'] == 'Income')]['Allocation'])).tolist()
+                    bar_data = {}
+                    stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
                     for store in stores:
                         store = str(store)
                         incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
@@ -329,11 +394,11 @@ with insights_tab:
                         for name in income_names:
                             name = str(name)
                             total_expenses = total_expenses + stable[(stable['Category'] != 'Income') & (stable['Allocation'] == name)]['Amount'].sum()
-                        bar_data['Income'] += [total_income]
-                        bar_data['Expenses'] += [total_expenses]
-                    if len(bar_data['Income']) > 0:
+                        bar_data[store] = [total_income, total_expenses]
+                    bar_data["Category"] = [" Income", "Expenses"] # added space character to adjust sort
+                    if len(bar_data.items()) > 0:
                         st.markdown('### Income Allocation')
-                        st.bar_chart(pd.DataFrame.from_dict(bar_data, orient='index', columns=stores), height=480)
+                        st.bar_chart(pd.DataFrame.from_dict(bar_data).set_index(['Category']), height=480)
 
             with right: # Sankey Chart of Income to Total Income to Expense Categories
                 with st.container():
@@ -355,14 +420,31 @@ with insights_tab:
                         sankey = go.Sankey(node={'label': nodes.index},
                             link={'source': nodes.loc[sankey_df['source']],
                                 'target': nodes.loc[sankey_df['target']],
-                                'value': sankey_df['value']})
+                                'value': sankey_df['value']},
+                            textfont={'size': 14, 'color': 'black'})
                         fig = go.Figure(data=sankey)
-                        fig.update_layout(margin=dict(l=0, r=0, t=5, b=30), font_size=14)
+                        fig.update_layout(margin=dict(l=0, r=0, t=5, b=30))
                         st.plotly_chart(fig, use_container_width=True, theme=None)
 
 with about_tab:
     st.markdown('Budgeteer documentation coming soon!')
-    st.markdown('Currently serving `v0.13.3`')
+    st.markdown('Currently serving `v0.15.0`')
+
+with donate_tab:
+    _, center, _ = st.columns([1, 4, 1], gap="medium")
+    with center.container(border=True):
+        widget_style = '''
+        <style>
+        .stIFrame > div > div {
+            visibility: hidden;
+        }
+        </style>
+        '''
+        st.markdown(widget_style, unsafe_allow_html=True)
+        widget = '''
+        <script data-name="BMC-Widget" data-cfasync="false" src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js" data-id="burris" data-description="Support me on Buy me a coffee!" data-message="If you like this website and want to see it improve, please consider buying me a coffee!" data-color="#5F7FFF" data-position="Right" data-x_margin="18" data-y_margin="18"></script>
+        '''
+        html(f"{widget}", height=530)
 
 # Debugging
 # st.write("Session State", st.session_state)
