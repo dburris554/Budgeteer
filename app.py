@@ -7,6 +7,7 @@ import altair as alt
 import numpy as np
 import friendlywords as fw
 from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGridTheme, JsCode, AgGrid
+from streamlit.components.v1 import html
 
 # Layout changes
 st.set_page_config(page_title='Budgeteer', page_icon='🚀', layout="wide", initial_sidebar_state='expanded')
@@ -44,6 +45,7 @@ SAMPLE_ROWS = [(1, 'Paycheck 1', 'Income', 2000.59, 'ABC Bank', 'True', 'False',
           (14, 'Car payment', 'Loans', 300, 'Paycheck 1', 'True', 'False', 'False'),
           (15, 'Walmart', 'Groceries', 150, 'Paycheck 2', 'False', 'False', 'False')]
 SAMPLE = pd.DataFrame([dict(zip(SAMPLE_COLS, SAMPLE_ROWS[i])) for i in range(len(SAMPLE_ROWS))])
+HEIGHT = 500
 
 class DataFrameMutateMode(Enum):
     APPEND = 1
@@ -197,7 +199,7 @@ def row_coloring():
 
 # Streamlit componenets
 st.header('Welcome, fellow Budgeteer! :wave:', anchor=False)
-data_tab, insights_tab, about_tab = st.tabs(['Data', 'Insights', 'About'])
+data_tab, insights_tab, about_tab, donate_tab = st.tabs(['Data', 'Insights', 'About', 'Donate'])
 
 with st.sidebar:
     default_file_name = 'budget'
@@ -240,7 +242,7 @@ with data_tab:
             selected['Day'] = selected['Day'].astype(int)
             selected['Amount'] = selected['Amount'].astype(float)
             selected = selected.drop('_selectedRowNodeInfo', axis=1)
-    left, center, _, right = st.columns([1,1,2,1], gap="medium")
+    left, center, _, right = st.columns([1, 1, 2, 1], gap="medium")
 
     with left:
         disabled = selected is None or selected.empty
@@ -265,7 +267,7 @@ with insights_tab:
     with st.expander('**Pending Charges**'):
         if not stable.empty:
             stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
-            with st.container(height=500):
+            with st.container(height=HEIGHT):
                 for store in stores:
                     left, right = st.columns([1, 2])
                     right.markdown('')
@@ -302,9 +304,9 @@ with insights_tab:
     with st.expander('**Unpaid Charges**'):
         if not stable.empty:
             stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
-            with st.container(height=500):
+            with st.container(height=HEIGHT):
                 for store in stores:
-                    left, right = st.columns([1,2])
+                    left, right = st.columns([1, 2])
                     left.markdown(f'## {store}')
                     right.markdown('')
                     store_incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
@@ -337,9 +339,9 @@ with insights_tab:
     with st.expander('**Income Burndowns**'):
         if not stable.empty:
             incomes = np.unique(stable[(stable['Category'] == 'Income')]['Description']).tolist()
-            with st.container(height=500):
+            with st.container(height=HEIGHT):
                 for income in incomes:
-                    left, right = st.columns([2,1])
+                    left, right = st.columns([2, 1])
                     left.markdown(f'## {income}')
                     right.markdown('')
                     expense_df = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income)].set_index('Day').sort_values('Day')
@@ -375,10 +377,9 @@ with insights_tab:
                                       use_container_width=True, theme=None)
                     right.metric(label='**Total remaining**', value=f'${curr_balance:,.2f}')
 
-
     st.markdown('')
     with st.expander('**Data Exploration**'):
-        left, _, right = st.columns([2,1,3])
+        left, _, right = st.columns([2, 1, 3])
         if not stable.empty:
             with left: # Bar graph of Income and Allocated Expenses
                 with st.container():
@@ -428,6 +429,22 @@ with insights_tab:
 with about_tab:
     st.markdown('Budgeteer documentation coming soon!')
     st.markdown('Currently serving `v0.14.4`')
+
+with donate_tab:
+    _, center, _ = st.columns([1, 4, 1], gap="medium")
+    with center.container(border=True):
+        widget_style = '''
+        <style>
+        .stIFrame > div > div {
+            visibility: hidden;
+        }
+        </style>
+        '''
+        st.markdown(widget_style, unsafe_allow_html=True)
+        widget = '''
+        <script data-name="BMC-Widget" data-cfasync="false" src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js" data-id="burris" data-description="Support me on Buy me a coffee!" data-message="If you like this website and want to see it improve, please consider buying me a coffee!" data-color="#5F7FFF" data-position="Right" data-x_margin="18" data-y_margin="18"></script>
+        '''
+        html(f"{widget}", height=530)
 
 # Debugging
 # st.write("Session State", st.session_state)
