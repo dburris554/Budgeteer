@@ -267,7 +267,7 @@ with insights_tab:
             stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
             with st.container(height=500):
                 for store in stores:
-                    left, right = st.columns([1,2])
+                    left, right = st.columns([1, 2])
                     right.markdown('')
                     left.markdown(f'## {store}')
                     store_incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
@@ -292,7 +292,7 @@ with insights_tab:
                         right.metric(label='**Sum of Pending**', value=f'${sum:,.2f}')
                         right.dataframe(income_df, use_container_width=True)
                         if income_name != store_income_names[len(store_income_names)-1]:
-                            right.markdown('---')
+                            right.divider()
                             right.markdown('')
                     left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
                     if store != stores[len(stores)-1]:
@@ -327,7 +327,7 @@ with insights_tab:
                         right.metric(label='**Sum of Unpaid**', value=f'${sum:,.2f}')
                         right.dataframe(income_df, use_container_width=True)
                         if income_name != store_income_names[len(store_income_names)-1]:
-                            right.markdown('---')
+                            right.divider()
                             right.markdown('')
                     left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
                     if store != stores[len(stores)-1]:
@@ -370,8 +370,7 @@ with insights_tab:
                     for i in range(31 - curr_day):
                         day += [curr_day + i + 1]
                         balance += [curr_balance]
-                    chart_df = pd.DataFrame({'Day': day,
-                                            'Balance': balance})
+                    chart_df = pd.DataFrame({'Day': day, 'Balance': balance})
                     left.altair_chart(alt.Chart(chart_df).mark_line(point=True, interpolate='step-after', strokeWidth=3, strokeCap='round').encode(x='Day:O', y=alt.Y('Balance', scale=alt.Scale(padding=20, nice=100)), order='Day').interactive(), # type: ignore
                                       use_container_width=True, theme=None)
                     right.metric(label='**Total remaining**', value=f'${curr_balance:,.2f}')
