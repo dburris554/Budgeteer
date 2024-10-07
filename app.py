@@ -428,7 +428,7 @@ with insights_tab:
 
 with about_tab:
     st.markdown('Budgeteer documentation coming soon!')
-    st.markdown('Currently serving `v0.15.0`')
+    st.markdown('Currently serving `v0.15.1`')
 
 with donate_tab:
     _, center, _ = st.columns([1, 4, 1], gap="medium")
