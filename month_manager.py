@@ -32,6 +32,9 @@ def initialize_month_state() -> None:
     
     if "last_draft_save" not in st.session_state:
         st.session_state.last_draft_save = None
+    
+    if "committed_edit_index" not in st.session_state:
+        st.session_state.committed_edit_index = None
 
 
 def render_month_selector() -> str:
@@ -175,7 +178,9 @@ def get_month_summary(df: pd.DataFrame) -> dict:
             "total_income": 0.0,
             "total_expenses": 0.0,
             "net_balance": 0.0,
-            "entry_count": 0
+            "entry_count": 0,
+            "income_count": 0,
+            "expense_count": 0
         }
     
     # Ensure numeric types

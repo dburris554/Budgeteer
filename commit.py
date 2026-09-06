@@ -156,7 +156,7 @@ def render_save_section() -> None:
         st.info("✨ All changes are committed. No pending changes.", icon="ℹ️")
         return
     
-    st.markdown("## 💾 Save & Commit")
+    st.markdown("##### 💾 Save & Commit")
     
     col1, col2 = st.columns([3, 1])
     

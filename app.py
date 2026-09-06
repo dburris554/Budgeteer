@@ -15,7 +15,7 @@ from auth import initialize_authenticator, render_auth_page, check_authenticatio
 from gsheets_manager import initialize_gsheets_connection
 from month_manager import initialize_month_state, render_month_selector, switch_month, handle_month_creation, render_month_summary_metrics
 from data_entry import render_data_entry_section, render_committed_data_table
-from pending_changes import initialize_pending_changes, render_pending_changes_section, render_edit_dialog, get_pending_changes_count
+from pending_changes import initialize_pending_changes, render_pending_changes_section, get_pending_changes_count
 from commit import render_save_section, auto_save_draft
 from csv_handler import render_csv_section
 from notifications import show_success, show_error, show_warning, show_info
@@ -23,6 +23,75 @@ from insights import render_insights_tab
 
 # Layout changes
 st.set_page_config(page_title='Budgeteer', page_icon='🚀', layout="wide", initial_sidebar_state='expanded')
+
+# Hide "Press Enter to Submit Form" text from form inputs and reduce heading sizes
+st.markdown("""
+<style>
+    .stTextInput > div > div > span,
+    .stNumberInput > div > div > span {
+        display: none !important;
+    }
+    h1 {
+        font-size: 1.5rem !important;
+        margin-bottom: 0.3rem !important;
+    }
+    h2 {
+        font-size: 1.2rem !important;
+        margin-bottom: 0.3rem !important;
+    }
+    h3 {
+        font-size: 1rem !important;
+        margin-bottom: 0.2rem !important;
+    }
+    h4, h5, h6 {
+        font-size: 0.95rem !important;
+        margin-bottom: 0.2rem !important;
+    }
+    .stMarkdown {
+        margin-top: 0.2rem !important;
+        margin-bottom: 0.2rem !important;
+    }
+    hr {
+        margin-top: 0.5rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    /* Freeze tabs at top */
+    [data-testid="stTabs"] {
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        background-color: white;
+    }
+    
+    /* Edit dialog animation */
+    [data-testid="stForm"] {
+        animation: slideDown 0.3s ease-out;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        to {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Initialize authentication
 if "authenticator" not in st.session_state:
@@ -190,7 +259,7 @@ def row_coloring():
     pass
 
 # Streamlit componenets
-st.header('Welcome, fellow Budgeteer! :wave:', anchor=False)
+st.subheader('Welcome, fellow Budgeteer! :wave:')
 data_tab, insights_tab, about_tab, donate_tab = st.tabs(['Data', 'Insights', 'About', 'Donate'])
 
 with st.sidebar:
@@ -212,7 +281,7 @@ with st.sidebar:
 
 with data_tab:
     # Display month summary metrics
-    st.markdown(f"### 📊 {st.session_state.get('current_month', 'Current Month')} Summary")
+    st.markdown(f"##### 📊 {st.session_state.get('current_month', 'Current Month')} Summary")
     render_month_summary_metrics()
     st.divider()
     
@@ -223,12 +292,6 @@ with data_tab:
     # Render pending changes section
     render_pending_changes_section()
     
-    # Show edit dialog if a change is being edited
-    edited_index = st.session_state.get("edited_change_index")
-    if edited_index is not None:
-        st.divider()
-        render_edit_dialog(edited_index)
-    
     st.divider()
     
     # Render save & commit section
@@ -237,22 +300,14 @@ with data_tab:
     st.divider()
     
     # Render committed data table
-    st.markdown("## 📋 Committed Entries")
+    st.markdown("##### 📋 Committed Entries")
     render_committed_data_table()
     
-    # Old data display code - to be removed
-    # Temporary placeholder for backwards compatibility
-    left, center, _, right = st.columns([1, 1, 2, 1], gap="medium")
+    st.divider()
     
-    with left:
-        # These buttons are deprecated - forms replaced them
-        st.checkbox('Fit Columns to Screen', value=False, disabled=True)
-    
-    with center:
-        pass
-    
-    with right:
-        pass
+    # Render trash section
+    from trash import render_trash_section
+    render_trash_section()
     
     # Auto-save draft on every rerun
     auto_save_draft()
@@ -261,8 +316,8 @@ with insights_tab:
     render_insights_tab()
 
 with about_tab:
-    st.markdown("## 📚 About Budgeteer")
-    st.markdown("### Version 1.0.0")
+    st.markdown("#### 📚 About Budgeteer")
+    st.markdown("##### Version 1.0.0")
     
     # Quick overview
     st.markdown("""
@@ -470,17 +525,26 @@ with about_tab:
     st.caption("📖 For detailed documentation, see DOCUMENTATION.md in the project repository")
 
 with donate_tab:
-    st.markdown("### ☕ Support Budgeteer")
+    st.markdown("#### ☕ Support Budgeteer")
     st.markdown("""
     If you find Budgeteer helpful and would like to support continued development, 
     consider buying me a coffee!
     """)
     
-    # Buy Me Coffee widget - embedded third-party script for donations
-    widget = '''
-    <script data-name="BMC-Widget" data-cfasync="false" src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js" data-id="burris" data-description="Support me on Buy me a coffee!" data-message="If you like this website and want to see it improve, please consider buying me a coffee!" data-color="#5F7FFF" data-position="Right" data-x_margin="18" data-y_margin="18"></script>
-    '''
-    html(f"{widget}", height=500)
+    st.markdown("""
+    <div style="text-align: center; margin: 1rem 0;">
+        <a href="https://buymeacoffee.com/burris" target="_blank" style="
+            display: inline-block;
+            background-color: #5F7FFF;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1rem;
+        ">☕ Buy me a coffee</a>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Debugging
 # st.write("Session State", st.session_state)

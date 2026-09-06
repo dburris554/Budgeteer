@@ -209,7 +209,7 @@ def render_expense_form(income_descriptions: list = None) -> Optional[Dict[str, 
 
 def render_data_entry_section() -> None:
     """Render the complete data entry section with both forms."""
-    st.markdown("## ✏️ Add Budget Entries")
+    st.subheader("✏️ Add Budget Entries")
     
     # Get list of income descriptions for expense allocation dropdown
     committed_data = st.session_state.get("committed_data", pd.DataFrame())
@@ -257,7 +257,7 @@ def render_data_entry_section() -> None:
 
 
 def render_committed_data_table() -> None:
-    """Render read-only view of committed budget data with formatting."""
+    """Render committed budget data with edit/delete functionality."""
     committed_data = st.session_state.get("committed_data", pd.DataFrame())
     
     if committed_data.empty:
@@ -283,41 +283,50 @@ def render_committed_data_table() -> None:
     except:
         pass
     
-    # Format amount as currency for display
-    if "Amount" in display_df.columns:
-        try:
-            display_df["Amount_display"] = display_df["Amount"].astype(float).apply(lambda x: f"${x:,.2f}")
-        except:
-            pass
+    # Add index for tracking
+    display_df = display_df.reset_index(drop=True)
     
-    # Build column configuration
-    column_config = {}
+    # Display entries with edit/delete buttons
+    for idx, (_, row) in enumerate(display_df.iterrows()):
+        col1, col2, col3 = st.columns([4, 0.5, 0.5], gap="small")
+        
+        with col1:
+            # Format and display entry
+            category = row.get("Category", "")
+            description = row.get("Description", "")
+            amount = row.get("Amount", 0)
+            day = row.get("Day", "-")
+            
+            if category == "Income":
+                st.text(f"Day {day}: {description} (Income) - ${float(amount):,.2f}")
+            else:
+                st.text(f"Day {day}: {description} ({category}) - ${float(amount):,.2f}")
+        
+        with col2:
+            if st.button("✏️", key=f"edit_committed_{idx}"):
+                st.session_state.committed_edit_index = idx
+                st.rerun()
+        
+        with col3:
+            if st.button("🗑️", key=f"delete_committed_{idx}"):
+                # Move to trash
+                from trash import trash_item
+                entry = st.session_state.committed_data.iloc[idx].to_dict()
+                trash_item(entry, "committed")
+                
+                # Remove from committed data
+                st.session_state.committed_data = st.session_state.committed_data.drop(idx)
+                st.session_state.committed_data = st.session_state.committed_data.reset_index(drop=True)
+                st.toast("🗑️ Entry moved to trash", icon="✅")
+                st.rerun()
     
-    if "Day" in display_df.columns:
-        column_config["Day"] = st.column_config.NumberColumn(format="%d", width="small")
+    # Show edit dialog if editing
+    edit_idx = st.session_state.get("committed_edit_index")
+    if edit_idx is not None and 0 <= edit_idx < len(committed_data):
+        st.divider()
+        render_committed_edit_dialog(edit_idx)
     
-    if "Amount_display" in display_df.columns:
-        column_config["Amount_display"] = st.column_config.TextColumn("Amount", width="small")
-    elif "Amount" in display_df.columns:
-        column_config["Amount"] = st.column_config.NumberColumn(format="$%,.2f", width="small")
-    
-    # Hide original Amount column if we created display version
-    if "Amount_display" in display_df.columns and "Amount" in display_df.columns:
-        display_df = display_df.drop(columns=["Amount"])
-    
-    # Display configuration for boolean columns
-    for col in ["Automatic", "Paid", "Cleared"]:
-        if col in display_df.columns:
-            column_config[col] = st.column_config.CheckboxColumn(width="small")
-    
-    # Display the dataframe
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config=column_config if column_config else None,
-        height=300
-    )
+    st.divider()
     
     # Show entry count
     col1, col2, col3 = st.columns(3)
@@ -334,6 +343,113 @@ def render_committed_data_table() -> None:
         if "Category" in committed_data.columns:
             expense_count = len(committed_data[committed_data["Category"] != "Income"])
             st.caption(f"💸 Expenses: {expense_count}")
+
+
+def render_committed_edit_dialog(edit_index: int) -> None:
+    """
+    Render edit dialog for a committed entry.
+    
+    Args:
+        edit_index: Index of entry to edit in committed_data
+    """
+    committed_data = st.session_state.get("committed_data", pd.DataFrame())
+    
+    if edit_index < 0 or edit_index >= len(committed_data):
+        return
+    
+    entry = committed_data.iloc[edit_index]
+    
+    st.markdown("#### ✏️ Edit Committed Entry")
+    
+    with st.form(f"edit_committed_form_{edit_index}"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            day = st.number_input(
+                "Day",
+                min_value=1,
+                max_value=31,
+                value=int(entry.get("Day", 1)),
+                key=f"edit_c_day_{edit_index}"
+            )
+            
+            amount = st.number_input(
+                "Amount ($)",
+                min_value=0.0,
+                step=0.01,
+                value=float(entry.get("Amount", 0)),
+                format="%.2f",
+                key=f"edit_c_amount_{edit_index}"
+            )
+        
+        with col2:
+            description = st.text_input(
+                "Description",
+                value=str(entry.get("Description", "")),
+                key=f"edit_c_description_{edit_index}"
+            )
+            
+            if entry.get("Category") == "Income":
+                allocation = st.text_input(
+                    "Allocation (Bank/Source)",
+                    value=str(entry.get("Allocation", "")),
+                    key=f"edit_c_allocation_{edit_index}"
+                )
+            else:
+                category = st.text_input(
+                    "Category",
+                    value=str(entry.get("Category", "")),
+                    key=f"edit_c_category_{edit_index}"
+                )
+                
+                allocation = st.text_input(
+                    "Allocation (Income Source)",
+                    value=str(entry.get("Allocation", "")),
+                    key=f"edit_c_allocation_{edit_index}"
+                )
+        
+        # Checkboxes for flags
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            automatic = st.checkbox("Automatic Payment", value=entry.get("Automatic") == "True", key=f"edit_c_auto_{edit_index}")
+        
+        with col2:
+            paid = st.checkbox("Paid", value=entry.get("Paid") == "True", key=f"edit_c_paid_{edit_index}")
+        
+        with col3:
+            cleared = st.checkbox("Cleared", value=entry.get("Cleared") == "True", key=f"edit_c_cleared_{edit_index}")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.form_submit_button("✅ Save", use_container_width=True):
+                # Update the entry
+                updated_data = st.session_state.committed_data.iloc[edit_index].to_dict()
+                updated_data["Day"] = int(day)
+                updated_data["Amount"] = round(amount, 2)
+                updated_data["Description"] = description.strip()
+                updated_data["Allocation"] = allocation.strip()
+                updated_data["Automatic"] = "True" if automatic else "False"
+                updated_data["Paid"] = "True" if paid else "False"
+                updated_data["Cleared"] = "True" if cleared else "False"
+                
+                if entry.get("Category") != "Income":
+                    updated_data["Category"] = category.strip()
+                
+                # Update the DataFrame
+                st.session_state.committed_data.iloc[edit_index] = pd.Series(updated_data)
+                st.session_state.committed_edit_index = None
+                st.toast("✅ Entry updated", icon="✅")
+                st.rerun()
+        
+        with col2:
+            if st.form_submit_button("❌ Cancel", use_container_width=True):
+                st.session_state.committed_edit_index = None
+                # Small delay to allow animation
+                import time
+                time.sleep(0.15)
+                st.rerun()
 
 
 def validate_entry(entry: Dict[str, Any]) -> tuple[bool, str]:

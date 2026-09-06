@@ -151,7 +151,7 @@ def export_budget_to_csv() -> Tuple[bool, str, bytes]:
         csv_string = combined_df.to_csv(index=False)
         csv_bytes = csv_string.encode("utf-8")
         
-        return True, f"✅ Export ready ({len(combined_df)} entries)", csv_bytes
+        return True, f"✅ Export ready", csv_bytes
     
     except Exception as e:
         return False, f"❌ Export failed: {str(e)}", b""
@@ -207,6 +207,11 @@ def render_csv_download_section() -> None:
         help="Name for the exported CSV file"
     )
     
+    # Check if we should show download button
+    if "last_export_data" not in st.session_state:
+        st.session_state.last_export_data = None
+        st.session_state.last_export_message = None
+    
     # Export button
     if st.sidebar.button("📋 Prepare Download", use_container_width=True, key="export_csv_btn"):
         success, message, csv_bytes = export_budget_to_csv()
@@ -215,19 +220,22 @@ def render_csv_download_section() -> None:
             st.sidebar.error(message)
             return
         
-        st.sidebar.success(message)
-        
-        # Download button
+        st.session_state.last_export_data = csv_bytes
+        st.session_state.last_export_message = message
+        st.toast("✅ CSV exported and ready for download", icon="✅")
+        st.rerun()
+    
+    # Show download button if data is ready
+    if st.session_state.last_export_data:
+        st.sidebar.success(st.session_state.last_export_message)
         st.sidebar.download_button(
             label=f"⬇️ Download {filename}.csv",
-            data=csv_bytes,
+            data=st.session_state.last_export_data,
             file_name=f"{filename}.csv",
             mime="text/csv",
             use_container_width=True,
             key="download_csv_btn"
         )
-        
-        st.toast("✅ CSV exported and ready for download", icon="✅")
 
 
 def render_csv_section() -> None:

@@ -38,10 +38,13 @@ def add_pending_change(change_type: str, data: Dict[str, Any]) -> None:
 
 
 def delete_pending_change(index: int) -> None:
-    """Delete a pending change by index."""
+    """Delete a pending change by moving it to trash."""
     if 0 <= index < len(st.session_state.get("pending_changes", [])):
-        st.session_state.pending_changes.pop(index)
-        st.toast(f"🗑️ Change removed from pending list", icon="✅")
+        change = st.session_state.pending_changes.pop(index)
+        
+        # Move to trash
+        from trash import trash_item
+        trash_item(change, "pending")
 
 
 def edit_pending_change(index: int, updated_data: Dict[str, Any]) -> None:
@@ -98,24 +101,15 @@ def render_pending_changes_section() -> None:
         st.info("✨ No pending changes. Add entries using the forms above, or commit to finalize your budget.", icon="ℹ️")
         return
     
-    st.markdown(f"## ⏳ Pending Changes ({len(pending_changes)})")
+    st.markdown(f"##### ⏳ Pending Changes ({len(pending_changes)})")
     
     # View toggle
-    col1, col2, col3 = st.columns([2, 1, 1])
-    
-    with col1:
-        view_mode = st.radio(
-            "Display style:",
-            options=["List", "Cards"],
-            horizontal=True,
-            key="pending_view_mode"
-        )
-    
-    with col3:
-        if st.button("🗑️ Clear All", key="clear_all_pending"):
-            st.session_state.pending_changes = []
-            st.toast("✅ All pending changes cleared", icon="✅")
-            st.rerun()
+    view_mode = st.radio(
+        "Display style:",
+        options=["List", "Cards"],
+        horizontal=True,
+        key="pending_view_mode"
+    )
     
     st.divider()
     
@@ -129,21 +123,109 @@ def render_pending_changes_section() -> None:
 def render_pending_list(pending_changes: List[Dict[str, Any]]) -> None:
     """Render pending changes as a list."""
     for idx, change in enumerate(pending_changes):
-        col1, col2, col3 = st.columns([3, 1, 1])
+        # Highlight the row being edited
+        is_editing = st.session_state.get("edited_change_index") == idx
         
-        with col1:
-            display_text = format_change_display(change)
-            st.markdown(display_text)
+        if is_editing:
+            # Create a container with highlight styling
+            with st.container(border=True):
+                col1, col2 = st.columns([4, 0.8], gap="small")
+                
+                with col1:
+                    # Get checkbox states
+                    data = change.get("data", {})
+                    flags = []
+                    
+                    if data.get("Category") != "Income":
+                        # For expenses, show the flags
+                        if data.get("Automatic") == "True":
+                            flags.append("⇄ Automatic")
+                        if data.get("Paid") == "True":
+                            flags.append("✔ Paid")
+                        if data.get("Cleared") == "True":
+                            flags.append("✈ Cleared")
+                    else:
+                        # For income, show if cleared
+                        if data.get("Cleared") == "True":
+                            flags.append("✈ Cleared")
+                    
+                    # Build display with text and flags combined
+                    display_text = format_change_display(change)
+                    if flags:
+                        flags_str = " ".join(flags)
+                        combined_html = f"""
+                        <div style='display: flex; align-items: center; gap: 8px;'>
+                            <span style='font-weight: bold;'>{display_text}</span>
+                            <span style='background-color: #E8F0FF; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; white-space: nowrap;'>{flags_str}</span>
+                        </div>
+                        """
+                        st.markdown(combined_html, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<span style='font-weight: bold;'>{display_text}</span>", unsafe_allow_html=True)
+                
+                with col2:
+                    btn_col1, btn_col2 = st.columns(2, gap="small")
+                    
+                    with btn_col1:
+                        if st.button("✏️", key=f"edit_{idx}", use_container_width=True):
+                            st.session_state.edited_change_index = idx
+                    
+                    with btn_col2:
+                        if st.button("🗑️", key=f"delete_{idx}", use_container_width=True):
+                            delete_pending_change(idx)
+                            st.rerun()
+        else:
+            col1, col2 = st.columns([4, 0.8], gap="small")
+            
+            with col1:
+                # Get checkbox states
+                data = change.get("data", {})
+                flags = []
+                
+                if data.get("Category") != "Income":
+                    # For expenses, show the flags
+                    if data.get("Automatic") == "True":
+                        flags.append("⇄ Automatic")
+                    if data.get("Paid") == "True":
+                        flags.append("✔ Paid")
+                    if data.get("Cleared") == "True":
+                        flags.append("✈ Cleared")
+                else:
+                    # For income, show if cleared
+                    if data.get("Cleared") == "True":
+                        flags.append("✈ Cleared")
+                
+                # Build display with text and flags combined
+                display_text = format_change_display(change)
+                if flags:
+                    flags_str = " ".join(flags)
+                    combined_html = f"""
+                    <div style='display: flex; align-items: center; gap: 8px;'>
+                        <span>{display_text}</span>
+                        <span style='background-color: #E8F0FF; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; white-space: nowrap;'>{flags_str}</span>
+                    </div>
+                    """
+                    st.markdown(combined_html, unsafe_allow_html=True)
+                else:
+                    st.text(display_text)
+            
+            with col2:
+                btn_col1, btn_col2 = st.columns(2, gap="small")
+                
+                with btn_col1:
+                    if st.button("✏️", key=f"edit_{idx}", use_container_width=True):
+                        st.session_state.edited_change_index = idx
+                
+                with btn_col2:
+                    if st.button("🗑️", key=f"delete_{idx}", use_container_width=True):
+                        delete_pending_change(idx)
+                        st.rerun()
         
-        with col2:
-            if st.button("✏️", key=f"edit_{idx}", help="Edit this change"):
-                st.session_state.edited_change_index = idx
-                st.rerun()
-        
-        with col3:
-            if st.button("🗑️", key=f"delete_{idx}", help="Delete this change"):
-                delete_pending_change(idx)
-                st.rerun()
+        # Show edit dialog if this change is being edited
+        if is_editing:
+            st.divider()
+            render_edit_dialog(idx)
+            st.divider()
 
 
 def render_pending_cards(pending_changes: List[Dict[str, Any]]) -> None:
@@ -202,7 +284,7 @@ def render_edit_dialog(change_index: int) -> None:
     change = st.session_state.pending_changes[change_index]
     data = change.get("data", {})
     
-    st.markdown("### ✏️ Edit Pending Change")
+    st.markdown("#### ✏️ Edit Pending Change")
     
     with st.form(f"edit_form_{change_index}"):
         col1, col2 = st.columns(2)
@@ -251,6 +333,12 @@ def render_edit_dialog(change_index: int) -> None:
                     key=f"edit_allocation_{change_index}"
                 )
         
+        # Checkboxes for flags stacked vertically
+        automatic = st.checkbox("⇄ Automatic", value=data.get("Automatic") == "True", key=f"edit_auto_{change_index}")
+        paid = st.checkbox("✔ Paid", value=data.get("Paid") == "True", key=f"edit_paid_{change_index}")
+        cleared = st.checkbox("✈ Cleared", value=data.get("Cleared") == "True", key=f"edit_cleared_{change_index}")
+        
+        # Save/Cancel buttons
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -260,6 +348,9 @@ def render_edit_dialog(change_index: int) -> None:
                 updated_data["Amount"] = round(amount, 2)
                 updated_data["Description"] = description.strip()
                 updated_data["Allocation"] = allocation.strip()
+                updated_data["Automatic"] = "True" if automatic else "False"
+                updated_data["Paid"] = "True" if paid else "False"
+                updated_data["Cleared"] = "True" if cleared else "False"
                 
                 if data.get("Category") != "Income":
                     updated_data["Category"] = category.strip()
@@ -270,4 +361,7 @@ def render_edit_dialog(change_index: int) -> None:
         with col2:
             if st.form_submit_button("❌ Cancel", use_container_width=True):
                 st.session_state.edited_change_index = None
+                # Small delay to allow animation
+                import time
+                time.sleep(0.15)
                 st.rerun()

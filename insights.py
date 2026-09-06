@@ -111,17 +111,18 @@ def render_pending_charges(df: pd.DataFrame) -> None:
         income_df = df[df["Category"] == "Income"]
         
         if income_df.empty:
-            st.info("No income entries to analyze.")
+            st.info("No income entries to analyze.", icon="ℹ️")
             return
         
         income_allocations = income_df["Allocation"].unique().tolist()
+        has_pending = False
         
         with st.container(height=500):
             for allocation in income_allocations:
                 if pd.isna(allocation) or allocation == " ":
                     continue
                 
-                st.markdown(f"### {allocation}")
+                st.markdown(f"##### {allocation}")
                 
                 # Get income for this allocation
                 alloc_incomes = income_df[income_df["Allocation"] == allocation]
@@ -145,6 +146,7 @@ def render_pending_charges(df: pd.DataFrame) -> None:
                         pending = pending[pending["Cleared"] == False]
                         
                         if not pending.empty:
+                            has_pending = True
                             pending_view = pending[["Day", "Description", "Category", "Amount"]].copy()
                             pending_view["Day"] = pending_view["Day"].astype(int)
                             pending_view["Amount"] = pending_view["Amount"].apply(lambda x: f"${x:,.2f}")
@@ -155,9 +157,12 @@ def render_pending_charges(df: pd.DataFrame) -> None:
                             st.metric("Sum of Pending", f"${sum_pending:,.2f}")
                             st.dataframe(pending_view, use_container_width=True, hide_index=True)
                         else:
-                            st.caption("No pending charges")
+                            st.caption("✨ No pending charges")
                     
                     st.divider()
+            
+            if not has_pending:
+                st.info("✨ No pending charges found. All automatic/paid charges are either cleared or not yet occurred.", icon="ℹ️")
 
 
 def render_unpaid_charges(df: pd.DataFrame) -> None:
@@ -169,12 +174,14 @@ def render_unpaid_charges(df: pd.DataFrame) -> None:
         expense_df = df[df["Category"] != "Income"]
         
         if expense_df.empty:
-            st.info("No expenses to analyze.")
+            st.info("No expenses to analyze.", icon="ℹ️")
             return
         
         # Get unique income allocations
         income_df = df[df["Category"] == "Income"]
         income_names = income_df["Description"].unique().tolist()
+        
+        has_unpaid = False
         
         with st.container(height=500):
             for income_name in income_names:
@@ -187,7 +194,8 @@ def render_unpaid_charges(df: pd.DataFrame) -> None:
                 if unpaid.empty:
                     continue
                 
-                st.markdown(f"### {income_name}")
+                has_unpaid = True
+                st.markdown(f"##### {income_name}")
                 
                 unpaid_view = unpaid[["Day", "Description", "Category", "Amount"]].copy()
                 unpaid_view["Day"] = unpaid_view["Day"].astype(int)
@@ -199,6 +207,9 @@ def render_unpaid_charges(df: pd.DataFrame) -> None:
                 st.metric("Sum of Unpaid", f"${sum_unpaid:,.2f}")
                 st.dataframe(unpaid_view, use_container_width=True, hide_index=True)
                 st.divider()
+            
+            if not has_unpaid:
+                st.info("✨ No unpaid charges found. All expenses are either paid, automatic, or cleared.", icon="ℹ️")
 
 
 def render_income_burndowns(df: pd.DataFrame) -> None:
@@ -210,7 +221,7 @@ def render_income_burndowns(df: pd.DataFrame) -> None:
         income_df = df[df["Category"] == "Income"]
         
         if income_df.empty:
-            st.info("No income entries to analyze.")
+            st.info("No income entries to analyze.", icon="ℹ️")
             return
         
         incomes = income_df["Description"].unique().tolist()
@@ -220,7 +231,7 @@ def render_income_burndowns(df: pd.DataFrame) -> None:
                 col_left, col_right = st.columns([2, 1])
                 
                 with col_left:
-                    st.markdown(f"## {income}")
+                    st.markdown(f"##### {income}")
                 
                 with col_right:
                     st.markdown("")
@@ -277,27 +288,30 @@ def render_data_exploration(df: pd.DataFrame) -> None:
         return
     
     with st.expander("**🔍 Data Exploration**", expanded=False):
+        income_total, income_sources, income_amounts = get_income_summary(df)
+        expense_total, expense_cats, expense_amounts = get_expense_summary(df)
+        
+        if income_total == 0 and expense_total == 0:
+            st.info("✨ No income or expense data to visualize. Add entries to your budget.", icon="ℹ️")
+            return
+        
         col_left, col_middle, col_right = st.columns([2, 1, 3])
         
         # Income allocation bar chart
         with col_left:
-            income_total, _, _ = get_income_summary(df)
-            expense_total, _, _ = get_expense_summary(df)
-            
             if income_total > 0 or expense_total > 0:
                 bar_data = pd.DataFrame({
                     "Category": ["Income", "Expenses"],
                     "Amount": [income_total, expense_total]
                 })
                 
-                st.markdown("### 📊 Income vs Expenses")
+                st.markdown("##### 📊 Income vs Expenses")
                 st.bar_chart(bar_data.set_index("Category"), height=400)
+            else:
+                st.info("No data for chart.", icon="ℹ️")
         
         # Sankey diagram
         with col_right:
-            _, income_sources, income_amounts = get_income_summary(df)
-            _, expense_cats, expense_amounts = get_expense_summary(df)
-            
             if income_sources and expense_cats:
                 # Build sankey data
                 source_indices = []
@@ -317,7 +331,7 @@ def render_data_exploration(df: pd.DataFrame) -> None:
                     target_indices.append(len(income_sources) + 1 + i)
                     values.append(amount)
                 
-                st.markdown("### 🌊 Income-Expense Flow")
+                st.markdown("##### 🌊 Income-Expense Flow")
                 
                 sankey = go.Sankey(
                     node={"label": labels},
@@ -332,6 +346,8 @@ def render_data_exploration(df: pd.DataFrame) -> None:
                 fig = go.Figure(data=sankey)
                 fig.update_layout(margin=dict(l=0, r=0, t=5, b=30), height=400)
                 st.plotly_chart(fig, use_container_width=True, theme=None)
+            else:
+                st.info("Add both income and expenses to see the flow diagram.", icon="ℹ️")
 
 
 def render_insights_tab() -> None:
