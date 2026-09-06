@@ -4,14 +4,18 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-streamlit = "*"
-pandas = "*"
-plotly = "*"
-streamlit-aggrid = "*"
-friendlywords = "*"
+streamlit = ">=1.40.0"
+pandas = ">=2.0.0"
+plotly = ">=5.0.0"
+streamlit-authenticator = ">=0.3.0"
+st-gsheets-connection = "*"
+pyyaml = ">=6.0"
+gspread = ">=5.0.0"
+altair = ">=5.0.0"
+numpy = ">=1.24.0"
 
 [dev-packages]
 pylint = "*"
 
 [requires]
-python_version = "3.11"
+python_version = "3.*"

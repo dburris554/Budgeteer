@@ -1,0 +1,22 @@
+cookie:
+  expiry_days: 30
+  key: "budgeteer_secret_key_change_in_production"
+  name: "budgeteer_auth"
+
+credentials:
+  usernames:
+    # Update with your desired username and password
+    # Password will be automatically hashed by streamlit-authenticator
+    budgeteer:
+      email: "user@example.com"
+      failed_login_attempts: 0
+      first_name: "Budgeteer"
+      last_name: "User"
+      logged_in: false
+      password: "your_secure_password_here"
+      roles:
+        - user
+
+# Pre-authorized emails for future multi-user registration (v1.1.0+)
+pre-authorized:
+  emails: []

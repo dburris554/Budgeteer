@@ -5,35 +5,66 @@ from enum import Enum
 import plotly.graph_objects as go
 import altair as alt
 import numpy as np
-import friendlywords as fw
-from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGridTheme, JsCode, AgGrid
+# TODO: Remove these legacy imports - will be replaced in Task 5
+# import friendlywords as fw
+# from st_aggrid import GridOptionsBuilder, ColumnsAutoSizeMode, AgGridTheme, JsCode, AgGrid
 from streamlit.components.v1 import html
+
+# Import authentication module
+from auth import initialize_authenticator, render_auth_page, check_authentication, render_logout_button, is_authenticated
+from gsheets_manager import initialize_gsheets_connection
+from month_manager import initialize_month_state, render_month_selector, switch_month, handle_month_creation, render_month_summary_metrics
+from data_entry import render_data_entry_section, render_committed_data_table
+from pending_changes import initialize_pending_changes, render_pending_changes_section, render_edit_dialog, get_pending_changes_count
+from commit import render_save_section, auto_save_draft
+from csv_handler import render_csv_section
+from notifications import show_success, show_error, show_warning, show_info
+from insights import render_insights_tab
 
 # Layout changes
 st.set_page_config(page_title='Budgeteer', page_icon='🚀', layout="wide", initial_sidebar_state='expanded')
-hide_streamlit_menu = '''
-<style>
-#MainMenu {visibility: hidden;}
-.block-container {
-    padding-top: 1rem;
-}
-[data-testid="stDecoration"] {
-    display: none;
-}
-</style>
-'''
-st.markdown(hide_streamlit_menu, unsafe_allow_html=True)
-hide_anchors = '''
-<style>
-h2 > span > a {
-    display: none !important;
-}
-h3 > span > a {
-    display: none !important;
-}
-</style>
-'''
-st.markdown(hide_anchors, unsafe_allow_html=True)
+
+# Initialize authentication
+if "authenticator" not in st.session_state:
+    authenticator, auth_config = initialize_authenticator()
+    st.session_state.authenticator = authenticator
+    st.session_state.auth_config = auth_config
+else:
+    authenticator = st.session_state.authenticator
+    auth_config = st.session_state.auth_config
+
+# Check if user needs to authenticate
+if not check_authentication():
+    if render_auth_page(authenticator):
+        # Show success toast on first auth
+        if st.session_state.get("authentication_status"):
+            show_success("✅ Welcome! You're logged in.", duration="short")
+        st.rerun()
+    else:
+        st.stop()
+
+# User is authenticated or in guest mode - render logout button
+if st.session_state.get("authentication_status"):
+    render_logout_button(authenticator, auth_config)
+    # Update auth config after logout
+    if not st.session_state.get("authentication_status"):
+        show_info("👋 You've been logged out.", duration="short")
+        st.rerun()
+
+# Initialize GSheets connection if authenticated
+if is_authenticated() and "gsheets_ready" not in st.session_state:
+    initialize_gsheets_connection()
+
+# Initialize month and budget state
+initialize_month_state()
+
+# Initialize pending changes
+# Initialize pending changes
+initialize_pending_changes()
+
+# Note: Custom CSS for hiding menu has been removed.
+# Modern Streamlit handles this natively through configuration.
+# See .streamlit/config.toml for theme settings.
 
 # Constants
 SAMPLE_COLS = ('Day', 'Description', 'Category', 'Amount', 'Allocation', 'Automatic', 'Paid', 'Cleared')
@@ -66,28 +97,37 @@ else:
     st.session_state.dataframe = stable
 if 'csv' not in st.session_state:
    st.session_state.csv = ''
-fw.preload() # type: ignore
-sample_values = dict(zip(SAMPLE_COLS, [0, fw.generate(3), fw.generate(1), 0.0, ' ', 'False', 'False', 'False'])) # type: ignore
+# TODO: Remove friendlywords usage in Task 5 - forms will start empty
+# fw.preload() # type: ignore
+# sample_values = dict(zip(SAMPLE_COLS, [0, fw.generate(3), fw.generate(1), 0.0, ' ', 'False', 'False', 'False'])) # type: ignore
+sample_values = dict(zip(SAMPLE_COLS, [0, 'Sample Description', 'Category', 0.0, ' ', 'False', 'False', 'False']))
 new_row = pd.DataFrame([[sample_values[col] if col in sample_values.keys() else ' ' for col in stable.columns]], columns=stable.columns) # type: ignore
-column_size_mode = ColumnsAutoSizeMode.FIT_CONTENTS
+# TODO: Remove ColumnsAutoSizeMode in Task 5 - AgGrid will be removed
+column_size_mode = 'FIT_CONTENTS'  # ColumnsAutoSizeMode.FIT_CONTENTS
 if 'size_mode' in st.session_state:
     column_size_mode = st.session_state.size_mode
 else:
     st.session_state.size_mode = column_size_mode
 
-# Callback Functions
+# Callback Functions (DEPRECATED - kept for reference only)
+# These functions were used with AgGrid for inline data editing.
+# They are no longer used as Budgeteer now uses form-based data entry.
+# Kept here for potential backwards compatibility or legacy code reference.
+
 def load_empty():
+    # DEPRECATED: Use month creation dialog instead
     global stable
     stable = pd.DataFrame(columns=SAMPLE_COLS)
-    st.session_state.dataframe = stable
-    st.session_state.size_mode = ColumnsAutoSizeMode.FIT_CONTENTS
+    st.session_state.size_mode = 'FIT_CONTENTS'
 
 def load_sample():
+    # DEPRECATED: Manual data entry is preferred
     global stable
     stable = SAMPLE
     st.session_state.dataframe = stable
 
 def mutate(rows: DataFrame, mode: DataFrameMutateMode):
+    # DEPRECATED: Use pending_changes workflow instead
     global modified
     rows['Day'] = rows['Day'].astype(int)
     rows['Amount'] = rows['Amount'].astype(float)
@@ -115,6 +155,7 @@ def mutate(rows: DataFrame, mode: DataFrameMutateMode):
             st.session_state.dataframe = pd.merge(modified, rows, how='outer', indicator=True).query("_merge != 'both' & _merge != 'right_only'").drop('_merge', axis=1).reset_index(drop=True)
 
 def convert_to_csv():
+    # DEPRECATED: Use csv_handler.export_budget_to_csv() instead
     global modified
     global stable
     if not modified.empty:
@@ -123,328 +164,323 @@ def convert_to_csv():
     st.session_state.csv = stable.sort_values('Day').to_csv(index=False).encode('utf-8')
 
 def switch_size_mode():
+    # DEPRECATED: No longer used with form-based UI
     global column_size_mode
     global stable
-    if column_size_mode == ColumnsAutoSizeMode.FIT_CONTENTS:
-        column_size_mode = ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW
-    elif column_size_mode == ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW:
-        column_size_mode = ColumnsAutoSizeMode.FIT_CONTENTS
+    if column_size_mode == 'FIT_CONTENTS':
+        column_size_mode = 'FIT_ALL_COLUMNS_TO_VIEW'
+    elif column_size_mode == 'FIT_ALL_COLUMNS_TO_VIEW':
+        column_size_mode = 'FIT_CONTENTS'
     st.session_state.size_mode = column_size_mode
     st.session_state.dataframe = stable
 
 def cb_renderer():
-    return JsCode("""
-        class CBRenderer {
-            init(params) {
-                this.params = params;
-                this.eGui = document.createElement('input');
-                this.eGui.type = 'checkbox';
-                this.eGui.checked = params.value == 'True' || params.value == true;
-                this.checkedHandler = this.checkedHandler.bind(this);
-                this.eGui.addEventListener('click', this.checkedHandler);
-            }
-
-            checkedHandler(e) {
-                let checked = e.target.checked;
-                let colId = this.params.column.colId;
-                this.params.node.setDataValue(colId, checked);
-            }
-
-            getGui() {
-                return this.eGui;
-            }
-
-            destroy() {
-                this.eGui.removeEventListener('click', this.checkedHandler);
-            }
-        }
-        """)
+    # TODO: Remove in final cleanup - was used for AgGrid checkbox rendering
+    # Native Streamlit components now handle this
+    pass
 
 def income_checker():
-    return JsCode("""
-        class IncomeChecker {
-            init(params) {
-                this.eGui = document.createElement('span');
-                this.eGui.innerHTML = this.getInnerHtml(params.value);
-            }
-
-            getGui(params) {
-                return this.eGui;
-            }
-
-            refresh(params) {
-                this.eGui.innerHTML = this.getInnerHtml(params.value);
-                return true;
-            }
-
-            getInnerHtml(value) {
-                if (value == 'Income') {
-                    return `<span style="background-color:palegreen">${value}</span>`;
-                }
-                return `<span>${value}</span>`;
-            }
-        }
-        """)
+    # TODO: Remove in final cleanup - was used for AgGrid custom rendering
+    # Native Streamlit components with column_config now handle this
+    pass
 
 def row_coloring():
-    return JsCode("""
-        function(params) {
-            if (params.rowIndex % 2 == 1) {
-                return {
-                    'backgroundColor': 'whitesmoke'
-                }
-            }
-        };
-        """)
+    # TODO: Remove in final cleanup - was used for AgGrid row styling
+    # Modern Streamlit themes handle styling
+    pass
 
 # Streamlit componenets
 st.header('Welcome, fellow Budgeteer! :wave:', anchor=False)
 data_tab, insights_tab, about_tab, donate_tab = st.tabs(['Data', 'Insights', 'About', 'Donate'])
 
 with st.sidebar:
-    default_file_name = 'budget'
-    upload = st.file_uploader('Upload budget CSV', 'csv')
-    if upload is not None:
-        default_file_name = upload.name[:upload.name.find('.')]
-        dataframe = pd.read_csv(upload)
-        add = st.button('Add rows', use_container_width=True, on_click=mutate, args=[dataframe, DataFrameMutateMode.APPEND]) # type: ignore
-        if add:
-            st.success('Rows added!', icon='✅')
-
+    # Render month selector
+    selected_month = render_month_selector()
+    
+    # Handle month switching
+    if selected_month != st.session_state.get("current_month"):
+        switch_month(selected_month)
+        st.rerun()
+    
+    # Handle new month creation dialog
+    handle_month_creation()
+    
     st.divider()
-    name = st.text_input('Download File Name', value=default_file_name)
-    ready = st.button('Create Download File!', use_container_width=True, on_click=convert_to_csv)
-    if ready:
-        file_name = name + '.csv'
-        st.download_button(label=f'Download "{file_name}"', use_container_width=True, data=st.session_state.csv, file_name=file_name, mime='text/csv')
+    
+    # Render CSV import/export section
+    render_csv_section()
 
 with data_tab:
-    if stable.empty:
-        st.dataframe(pd.DataFrame(columns=SAMPLE_COLS))
-    else:
-        stable['Day'] = stable['Day'].astype(int)
-        gb = GridOptionsBuilder.from_dataframe(stable)
-        gb.configure_pagination(paginationAutoPageSize=False)
-        gb.configure_default_column(editable=True)
-        gb.configure_column(field='Day', type=['numericColumn', 'numberColumnFilter'])
-        gb.configure_column(field='Amount', type=['numericColumn', 'numberColumnFilter', 'customCurrencyFormat'], custom_currency_symbol='$')
-        gb.configure_columns(column_names=['Automatic', 'Paid', 'Cleared'], cellRenderer=cb_renderer())
-        gb.configure_column(field='Category', cellRenderer=income_checker())
-        gb.configure_selection(selection_mode='multiple', use_checkbox=True, suppressRowDeselection=True, suppressRowClickSelection=True)
-        grid_options = gb.build()
-        grid_options['getRowStyle'] = row_coloring()
-        grid_options['suppressHorizontalScroll'] = True
-        modified_grid = AgGrid(stable, gridOptions=grid_options, columns_auto_size_mode=column_size_mode, enable_enterprise_modules=False, allow_unsafe_jscode=True, theme=AgGridTheme.ALPINE) # type: ignore
-        modified = modified_grid['data']
-        stable = modified
-        selected = pd.DataFrame(modified_grid['selected_rows'])
-        if not selected.empty:
-            selected['Day'] = selected['Day'].astype(int)
-            selected['Amount'] = selected['Amount'].astype(float)
-            selected = selected.drop('_selectedRowNodeInfo', axis=1)
+    # Display month summary metrics
+    st.markdown(f"### 📊 {st.session_state.get('current_month', 'Current Month')} Summary")
+    render_month_summary_metrics()
+    st.divider()
+    
+    # Render data entry forms
+    render_data_entry_section()
+    st.divider()
+    
+    # Render pending changes section
+    render_pending_changes_section()
+    
+    # Show edit dialog if a change is being edited
+    edited_index = st.session_state.get("edited_change_index")
+    if edited_index is not None:
+        st.divider()
+        render_edit_dialog(edited_index)
+    
+    st.divider()
+    
+    # Render save & commit section
+    render_save_section()
+    
+    st.divider()
+    
+    # Render committed data table
+    st.markdown("## 📋 Committed Entries")
+    render_committed_data_table()
+    
+    # Old data display code - to be removed
+    # Temporary placeholder for backwards compatibility
     left, center, _, right = st.columns([1, 1, 2, 1], gap="medium")
-
+    
     with left:
-        disabled = selected is None or selected.empty
-        st.button('Delete Selection', use_container_width=True, disabled=disabled, on_click=mutate, args=[selected, DataFrameMutateMode.REMOVE]) # type: ignore
-        st.checkbox('Fit Columns to Screen', value=column_size_mode == ColumnsAutoSizeMode.FIT_ALL_COLUMNS_TO_VIEW, on_change=switch_size_mode)
-
+        # These buttons are deprecated - forms replaced them
+        st.checkbox('Fit Columns to Screen', value=False, disabled=True)
+    
     with center:
-        st.button('Add New Row', use_container_width=True, on_click=mutate, args=[new_row, DataFrameMutateMode.PREPEND]) # type: ignore
-
+        pass
+    
     with right:
-        st.button('Clear', use_container_width=True, type='primary', on_click=load_empty)
-        st.button('Load Sample', use_container_width=True, type='primary', on_click=load_sample)
+        pass
+    
+    # Auto-save draft on every rerun
+    auto_save_draft()
 
 with insights_tab:
-    stable['Amount'] = stable['Amount'].astype(float)
-    stable[stable['Automatic'] == 'true']['Allocation'] = 'True'
-    stable[stable['Automatic'] == 'false']['Allocation'] = 'False'
-    stable[stable['Paid'] == 'true']['Paid'] = 'True'
-    stable[stable['Paid'] == 'false']['Paid'] = 'False'
-    stable[stable['Cleared'] == 'true']['Cleared'] = 'True'
-    stable[stable['Cleared'] == 'false']['Cleared'] = 'False'
-    with st.expander('**Pending Charges**'):
-        if not stable.empty:
-            stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
-            with st.container(height=HEIGHT):
-                for store in stores:
-                    left, right = st.columns([1, 2])
-                    right.markdown('')
-                    left.markdown(f'## {store}')
-                    store_incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
-                    store_income_names = np.unique(store_incomes['Description']).tolist()
-                    didClear = [True if 'True' in store_incomes[store_incomes['Description'] == name]['Cleared'].values else False for name in store_income_names]
-                    cleared_sum = 0
-                    for income_name, cleared in zip(store_income_names, didClear): # type: ignore
-                        rLeft, rCenter = right.columns(2, gap='medium')
-                        expenses = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income_name)]
-                        data_auto = expenses[(expenses['Automatic'] == 'True') & (expenses['Cleared'] == 'False')] # issue combining filters
-                        data_paid = expenses[(expenses['Paid'] == 'True') & (expenses['Cleared'] == 'False')]
-                        income_df = pd.concat([data_auto, data_paid])
-                        income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_values('Day')
-                        sum = income_df['Amount'].sum()
-                        income_df['Amount'] = income_df['Amount'].apply(lambda x: f'${x:,.2f}')
-                        rLeft.markdown(f'### {income_name}')
-                        if cleared:
-                            cleared_sum += sum
-                            rCenter.success('Has Cleared', icon='💲')
-                        else:
-                            rCenter.info('Has Not Cleared', icon='🚫')
-                        right.metric(label='**Sum of Pending**', value=f'${sum:,.2f}')
-                        right.dataframe(income_df, use_container_width=True)
-                        if income_name != store_income_names[len(store_income_names)-1]:
-                            right.divider()
-                            right.markdown('')
-                    left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
-                    if store != stores[len(stores)-1]:
-                        st.divider()
-
-    st.markdown('')
-    with st.expander('**Unpaid Charges**'):
-        if not stable.empty:
-            stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
-            with st.container(height=HEIGHT):
-                for store in stores:
-                    left, right = st.columns([1, 2])
-                    left.markdown(f'## {store}')
-                    right.markdown('')
-                    store_incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
-                    store_income_names = np.unique(store_incomes['Description']).tolist()
-                    didClear = [True if 'True' in store_incomes[store_incomes['Description'] == name]['Cleared'].values else False for name in store_income_names]
-                    cleared_sum = 0
-                    for income_name, cleared in zip(store_income_names, didClear): # type: ignore
-                        rLeft, rCenter = right.columns(2, gap='medium')
-                        expenses = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income_name)]
-                        income_df = expenses[(expenses['Automatic'] == 'False') & (expenses['Paid'] == 'False') & (expenses['Cleared'] == 'False')]
-                        income_df = income_df.loc[:, ['Day', 'Description', 'Category', 'Amount']].set_index('Day').sort_values('Day')
-                        sum = income_df['Amount'].sum()
-                        income_df['Amount'] = income_df['Amount'].apply(lambda x: f'${x:,.2f}')
-                        rLeft.markdown(f'### {income_name}')
-                        if cleared:
-                            cleared_sum += sum
-                            rCenter.success('Has Cleared', icon='💲')
-                        else:
-                            rCenter.info('Has Not Cleared', icon='🚫')
-                        right.metric(label='**Sum of Unpaid**', value=f'${sum:,.2f}')
-                        right.dataframe(income_df, use_container_width=True)
-                        if income_name != store_income_names[len(store_income_names)-1]:
-                            right.divider()
-                            right.markdown('')
-                    left.metric(label='**Total from Cleared Incomes**', value=f'${cleared_sum:,.2f}')
-                    if store != stores[len(stores)-1]:
-                        st.divider()
-
-    st.markdown('')
-    with st.expander('**Income Burndowns**'):
-        if not stable.empty:
-            incomes = np.unique(stable[(stable['Category'] == 'Income')]['Description']).tolist()
-            with st.container(height=HEIGHT):
-                for income in incomes:
-                    left, right = st.columns([2, 1])
-                    left.markdown(f'## {income}')
-                    right.markdown('')
-                    expense_df = stable[(stable['Category'] != 'Income') & (stable['Allocation'] == income)].set_index('Day').sort_values('Day')
-                    expense_names = expense_df.loc[:, ['Description']]['Description'].tolist()
-                    expense_amounts = expense_df.loc[:, ['Amount']]['Amount'].tolist()
-                    income_entry = stable[(stable['Category'] == 'Income') & (stable['Description'] == income)]
-                    day = []
-                    balance = []
-                    for i in range(int(income_entry.iloc[0]['Day'])):
-                        day += [i]
-                        balance += [0]
-                    day += [int(income_entry.iloc[0]['Day'])]
-                    balance += [float(income_entry.iloc[0]["Amount"])]
-                    curr_day = day[-1]
-                    curr_balance = balance[-1]
-                    for name, amount in zip(expense_names, expense_amounts):
-                        expense_entry = stable[(stable['Allocation'] == income) & (stable['Description'] == name) & (stable['Amount'] == amount)]
-                        if expense_entry.iloc[0]['Day'] != '' and expense_entry.iloc[0]['Amount'] != '':
-                            other_day = int(expense_entry.iloc[0]['Day'])
-                            diff = other_day - curr_day
-                            for i in range(diff):
-                                day += [curr_day + i + 1]
-                                balance += [curr_balance]
-                            day += [other_day]
-                            curr_day = day[-1]
-                            curr_balance -= float(expense_entry.iloc[0]['Amount'])
-                            balance += [curr_balance]
-                    for i in range(31 - curr_day):
-                        day += [curr_day + i + 1]
-                        balance += [curr_balance]
-                    chart_df = pd.DataFrame({'Day': day, 'Balance': balance})
-                    left.altair_chart(alt.Chart(chart_df).mark_line(point=True, interpolate='step-after', strokeWidth=3, strokeCap='round').encode(x='Day:O', y=alt.Y('Balance', scale=alt.Scale(padding=20, nice=100)), order='Day').interactive(), # type: ignore
-                                      use_container_width=True, theme=None)
-                    right.metric(label='**Total remaining**', value=f'${curr_balance:,.2f}')
-
-    st.markdown('')
-    with st.expander('**Data Exploration**'):
-        left, _, right = st.columns([2, 1, 3])
-        if not stable.empty:
-            with left: # Bar graph of Income and Allocated Expenses
-                with st.container():
-                    bar_data = {}
-                    stores = np.unique(stable[(stable['Category'] == 'Income')]['Allocation']).tolist()
-                    for store in stores:
-                        store = str(store)
-                        incomes = stable[(stable['Category'] == 'Income') & (stable['Allocation'] == store)]
-                        total_income = incomes['Amount'].sum()
-                        income_names = np.unique(incomes['Description']).tolist()
-                        total_expenses = 0.0
-                        for name in income_names:
-                            name = str(name)
-                            total_expenses = total_expenses + stable[(stable['Category'] != 'Income') & (stable['Allocation'] == name)]['Amount'].sum()
-                        bar_data[store] = [total_income, total_expenses]
-                    bar_data["Category"] = [" Income", "Expenses"] # added space character to adjust sort
-                    if len(bar_data.items()) > 0:
-                        st.markdown('### Income Allocation')
-                        st.bar_chart(pd.DataFrame.from_dict(bar_data).set_index(['Category']), height=480)
-
-            with right: # Sankey Chart of Income to Total Income to Expense Categories
-                with st.container():
-                    source, target, value = 'source', 'target', 'value'
-                    rows = []
-                    income_data = stable[(stable['Category'] == 'Income')].loc[:, ['Description', 'Amount']]
-                    for description, amount in zip(income_data['Description'].tolist(), income_data['Amount'].tolist()): # type: ignore
-                        rows.append({source: description, target: 'Total Income', value: amount})
-                    expense_data = stable[(stable['Category'] != 'Income')].loc[:, ['Category', 'Amount']]
-                    categories = np.unique(expense_data['Category']).tolist()
-                    for category in categories:
-                        category_amount = expense_data[(expense_data['Category'] == category)]['Amount'].sum()
-                        rows.append({source: 'Total Income', target: category, value: category_amount})
-                    if len(rows) > 0:
-                        st.markdown('### Income-Expense Distribution')
-                        sankey_df = pd.DataFrame(rows)
-                        nodes = np.unique(sankey_df[['source', 'target']], axis=None)
-                        nodes = pd.Series(index=nodes, data=range(len(nodes)))
-                        sankey = go.Sankey(node={'label': nodes.index},
-                            link={'source': nodes.loc[sankey_df['source']],
-                                'target': nodes.loc[sankey_df['target']],
-                                'value': sankey_df['value']},
-                            textfont={'size': 14, 'color': 'black'})
-                        fig = go.Figure(data=sankey)
-                        fig.update_layout(margin=dict(l=0, r=0, t=5, b=30))
-                        st.plotly_chart(fig, use_container_width=True, theme=None)
+    render_insights_tab()
 
 with about_tab:
-    st.markdown('Budgeteer documentation coming soon!')
-    st.markdown('Currently serving `v0.15.1`')
+    st.markdown("## 📚 About Budgeteer")
+    st.markdown("### Version 1.0.0")
+    
+    # Quick overview
+    st.markdown("""
+    Budgeteer is a personal budget planning application that helps you organize your income, 
+    track expenses, and understand your financial flow throughout the month.
+    """)
+    
+    # Feature highlights
+    with st.expander("✨ **Features**", expanded=True):
+        st.markdown("""
+        - **📝 Form-Based Data Entry** - Structured forms for adding income and expenses
+        - **📅 Monthly Budget Organization** - Create separate budgets for each month
+        - **⏳ Staged Changes Workflow** - Review changes before committing to prevent errors
+        - **💾 Optional Google Sheets Integration** - Cloud backup and persistent storage
+        - **🔐 Single-User Authentication** - Secure password protection
+        - **📊 Interactive Visualizations** - Charts and graphs to understand your budget
+        - **💾 Draft Auto-Save** - Automatic backup of uncommitted changes
+        - **📥 CSV Import/Export** - Import existing budgets or export for external analysis
+        - **👤 Guest Mode** - Try the app without authentication (session-only)
+        """)
+    
+    # Getting started
+    with st.expander("🚀 **Getting Started**", expanded=False):
+        st.markdown("""
+        1. **Choose Your Access Mode**
+           - Login for persistent storage with Google Sheets
+           - Or continue as guest for session-only mode
+        
+        2. **Create or Select a Month**
+           - Use the "📅 Monthly Budget" selector in the sidebar
+           - Click "➕ New Month" to create a new budget
+        
+        3. **Add Entries**
+           - Click "➕ Add Income" or "➕ Add Expense"
+           - Fill out the form and submit
+           - Entries appear in the Pending Changes section
+        
+        4. **Review and Commit**
+           - Check pending changes
+           - Click "✅ Commit & Save"
+           - Entries now part of your committed budget
+        
+        5. **Explore Insights**
+           - Switch to Insights tab
+           - View visualizations of your budget
+        """)
+    
+    # Data entry guide
+    with st.expander("✏️ **Data Entry Guide**", expanded=False):
+        st.markdown("""
+        ### Income Form
+        - **Day**: What day will this income arrive? (1-31)
+        - **Description**: Name of income (e.g., "Paycheck")
+        - **Amount**: Income amount in dollars
+        - **Allocation**: Bank or source (e.g., "Chase")
+        - **Cleared**: Is this income cleared?
+        
+        ### Expense Form
+        - **Day**: When will expense occur? (1-31)
+        - **Description**: Name of expense (e.g., "Rent")
+        - **Category**: Type (e.g., "Housing", "Food")
+        - **Amount**: Expense amount in dollars
+        - **Paid from**: Which income covers this expense
+        - **Automatic**: Automatically deducted?
+        - **Paid**: Has this been paid?
+        - **Cleared**: Has this cleared the account?
+        """)
+    
+    # Workflow explanation
+    with st.expander("⚙️ **How the Workflow Works**", expanded=False):
+        st.markdown("""
+        ### Pending Changes
+        When you add entries, they're staged in "Pending Changes" for review.
+        
+        **Benefits:**
+        - Catch errors before saving
+        - Review all changes at once
+        - Edit or delete before committing
+        - See clear before/after state
+        
+        ### Committing
+        Click "✅ Commit & Save" to make pending changes permanent.
+        
+        **What Happens:**
+        - All pending changes applied to committed budget
+        - Data saved to local storage and Google Sheets (if connected)
+        - Pending list cleared
+        - Committed entries appear below
+        
+        ### Draft Auto-Save
+        Your pending changes are automatically backed up:
+        - Saved to Draft sheet (if Google Sheets connected)
+        - Protection against connection loss or crashes
+        - Survives browser close (even without committing)
+        """)
+    
+    # Insights explanation
+    with st.expander("📊 **Understanding Insights**", expanded=False):
+        st.markdown("""
+        ### Summary Metrics
+        - **Total Income**: All income combined
+        - **Total Expenses**: All expenses combined
+        - **Net Balance**: Income minus Expenses
+        
+        ### Visualizations
+        - **Pending Charges**: Automatic/Paid expenses not yet cleared
+        - **Unpaid Charges**: Expenses you haven't paid yet
+        - **Income Burndowns**: How balance changes throughout the month
+        - **Data Exploration**: Income distribution and flow charts
+        
+        **Tip:** Burndown charts show when you might run out of money from each income source.
+        """)
+    
+    # CSV guide
+    with st.expander("📥 **CSV Import/Export**", expanded=False):
+        st.markdown("""
+        ### Importing CSV
+        1. Click "📤 Import from CSV" in sidebar
+        2. Upload a CSV file with columns:
+           - Day, Description, Category, Amount, Allocation, Automatic, Paid, Cleared
+        3. Preview the data
+        4. Click "➕ Add to Pending" to import
+        5. Review and commit as normal
+        
+        ### Exporting CSV
+        1. Click "📥 Export to CSV" in sidebar
+        2. Enter filename (optional)
+        3. Click "📋 Prepare Download"
+        4. Click download button
+        
+        **Exported data includes:** All committed entries + all pending entries
+        """)
+    
+    # Google Sheets guide
+    with st.expander("☁️ **Google Sheets Integration (Optional)**", expanded=False):
+        st.markdown("""
+        ### What It Does
+        - Automatic backup of your budget
+        - Access from multiple devices
+        - Permanent cloud storage
+        
+        ### How to Set Up
+        1. Log in with your credentials
+        2. Budgeteer will ask for Google authorization
+        3. Authorize access to your Google account
+        4. Connection established!
+        
+        ### Data Structure
+        - Workbook: "Budgeteer_Budget"
+        - One sheet per month (e.g., "2024-01")
+        - "Draft" sheet for backup of pending changes
+        
+        ### If Connection Fails
+        - Budgeteer continues working in local-only mode
+        - Export to CSV to backup your data
+        - Try logging in again or use guest mode
+        """)
+    
+    # Tips and best practices
+    with st.expander("💡 **Tips & Best Practices**", expanded=False):
+        st.markdown("""
+        ### Organization
+        - Use consistent category names (Housing, Food, etc.)
+        - Use recognizable allocation names (Main Bank, Paycheck, etc.)
+        - Mark Paid/Cleared to track payment status
+        
+        ### Workflow
+        - Add all income entries first (for allocation dropdown)
+        - Batch add entries, then commit once
+        - Use edit/delete liberally before committing
+        - Check insights weekly to spot spending patterns
+        
+        ### Analysis
+        - Burndown charts: flat = good, dropping = spending faster
+        - Pending vs Unpaid: focus on unpaid to see what's due
+        - Net Balance: positive = surplus, negative = overspending
+        """)
+    
+    # Troubleshooting
+    with st.expander("🔧 **Troubleshooting**", expanded=False):
+        st.markdown("""
+        ### Login Issues
+        - Check username/password (case-sensitive)
+        - Look for Caps Lock
+        
+        ### No Data in Insights
+        - You need to commit entries first (they're pending)
+        - Add entries using forms and click "✅ Commit & Save"
+        
+        ### CSV Import Errors
+        - Check all required columns present
+        - Verify Day is 1-31
+        - Verify Amount is numeric (no $ signs)
+        
+        ### Lost Data (Guest Mode)
+        - Guest mode data doesn't persist
+        - Use authenticated mode with Google Sheets for persistence
+        
+        ### Contact Support
+        - Check this About tab for answers
+        - Read DOCUMENTATION.md for detailed guide
+        """)
+    
+    st.divider()
+    st.caption("📖 For detailed documentation, see DOCUMENTATION.md in the project repository")
 
 with donate_tab:
-    _, center, _ = st.columns([1, 4, 1], gap="medium")
-    with center.container(border=True):
-        widget_style = '''
-        <style>
-        .stIFrame > div > div {
-            visibility: hidden;
-        }
-        </style>
-        '''
-        st.markdown(widget_style, unsafe_allow_html=True)
-        widget = '''
-        <script data-name="BMC-Widget" data-cfasync="false" src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js" data-id="burris" data-description="Support me on Buy me a coffee!" data-message="If you like this website and want to see it improve, please consider buying me a coffee!" data-color="#5F7FFF" data-position="Right" data-x_margin="18" data-y_margin="18"></script>
-        '''
-        html(f"{widget}", height=530)
+    st.markdown("### ☕ Support Budgeteer")
+    st.markdown("""
+    If you find Budgeteer helpful and would like to support continued development, 
+    consider buying me a coffee!
+    """)
+    
+    # Buy Me Coffee widget - embedded third-party script for donations
+    widget = '''
+    <script data-name="BMC-Widget" data-cfasync="false" src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js" data-id="burris" data-description="Support me on Buy me a coffee!" data-message="If you like this website and want to see it improve, please consider buying me a coffee!" data-color="#5F7FFF" data-position="Right" data-x_margin="18" data-y_margin="18"></script>
+    '''
+    html(f"{widget}", height=500)
 
 # Debugging
 # st.write("Session State", st.session_state)
